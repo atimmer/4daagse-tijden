@@ -4,6 +4,10 @@ import type { RouteData } from "./components/MapView";
 import RouteTogglePanel from "./components/RouteTogglePanel";
 import SpeedSelector from "./components/SpeedSelector";
 import StartTimeEditor from "./components/StartTimeEditor";
+import RoutePopup from "./components/RoutePopup";
+import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
+import { Popup } from "react-leaflet";
+import type { Feature, LineString, Position } from "geojson";
 import "./App.css";
 
 // Route meta info
@@ -40,6 +44,11 @@ const App: React.FC = () => {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [startTimes, setStartTimes] = useState<{ [name: string]: string }>({});
   const [speed, setSpeed] = useState<number>(5);
+  const [hovered, setHovered] = useState<{
+    routeName: string;
+    pointIndex: number;
+    latlng: [number, number];
+  } | null>(null);
 
   // Load GeoJSON files
   useEffect(() => {
@@ -76,6 +85,42 @@ const App: React.FC = () => {
     setStartTimes((prev) => ({ ...prev, [routeName]: newTime }));
   };
 
+  // Helper to get passage time info for popup
+  function getPopupInfo() {
+    if (!hovered) return null;
+    const route = routes.find((r) => r.name === hovered.routeName);
+    if (!route) return null;
+    // Find the first LineString in the route
+    const feature = route.geojson.features.find(
+      (f) => f.geometry.type === "LineString"
+    ) as Feature<LineString> | undefined;
+    if (!feature) return null;
+    // Filter only [number, number] coordinates
+    const coords = (feature.geometry.coordinates as Position[]).filter(
+      (c): c is [number, number] =>
+        Array.isArray(c) &&
+        c.length >= 2 &&
+        typeof c[0] === "number" &&
+        typeof c[1] === "number"
+    );
+    const dists = getCumulativeDistances(coords);
+    const distanceKm = dists[hovered.pointIndex] || 0;
+    const startTime = startTimes[route.name] || "07:00";
+    // Show range for min/max speed
+    const minSpeed = Math.min(...SPEED_OPTIONS);
+    const maxSpeed = Math.max(...SPEED_OPTIONS);
+    const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
+    const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
+    return {
+      routeName: route.name,
+      distanceKm,
+      timeRange: { earliest, latest },
+      latlng: hovered.latlng,
+    };
+  }
+
+  const popupInfo = getPopupInfo();
+
   return (
     <div className="max-w-5xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">
@@ -97,7 +142,13 @@ const App: React.FC = () => {
         options={SPEED_OPTIONS}
         onChange={handleSpeedChange}
       />
-      <MapView routes={routes} />
+      <MapView
+        routes={routes}
+        onPointHover={(routeName, pointIndex, latlng) =>
+          setHovered({ routeName, pointIndex, latlng })
+        }
+        popupInfo={popupInfo}
+      />
     </div>
   );
 };
