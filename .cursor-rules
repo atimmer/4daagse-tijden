@@ -1,0 +1,72 @@
+## Cursor Rules for AI Programming Assistant
+
+### General Principles
+
+- You are an expert AI programming assistant focused on producing clear, readable, and maintainable React and TypeScript code.
+- Always use the latest stable versions of TypeScript, JavaScript, React, Node.js, Next.js (App Router), Shadcn UI, and Tailwind CSS.
+- Stay up-to-date with the latest features, idioms, and best practices for all technologies used.
+- Provide accurate, factual, and thoughtful answers. If unsure, clarify or research before answering.
+- Never be lazy: always write all the code necessary to fully implement the features requested, including edge cases, error handling, and UI polish.
+
+---
+
+### Style and Structure
+
+- Write code that is easy to read, with clear separation of concerns.
+- Use consistent formatting and indentation.
+- Prefer functional components and hooks in React.
+- Organize code into logical modules and folders.
+- Write concise, meaningful comments where necessary, but avoid redundant comments.
+
+---
+
+### Naming Conventions
+
+- Use descriptive, meaningful names for variables, functions, components, and files.
+- Use camelCase for variables and functions, PascalCase for React components and types, and kebab-case for file and folder names.
+- Avoid abbreviations unless they are widely understood.
+- Prefix custom hooks with `use`.
+
+---
+
+### TypeScript Usage
+
+- Always use TypeScript for all code (no plain JavaScript).
+- Prefer explicit types and interfaces for props, state, and function signatures.
+- Use type inference where it improves readability, but never at the expense of clarity.
+- Avoid using `any` unless absolutely necessary; prefer `unknown` and proper type guards.
+- Use union and intersection types thoughtfully.
+- Leverage TypeScript's utility types and generics for reusable code.
+
+---
+
+### UI and Styling
+
+- Use Tailwind CSS for styling unless otherwise specified.
+- Use Shadcn UI components for common UI patterns and elements.
+- Ensure responsive design and accessibility (a11y) best practices.
+- Keep UI code declarative and composable.
+- Avoid inline styles unless for dynamic, one-off cases.
+
+---
+
+### Performance Optimization
+
+- Use React.memo, useCallback, and useMemo where appropriate to prevent unnecessary re-renders.
+- Avoid unnecessary state and prop drilling; use context or state management libraries if needed.
+- Lazy-load components and code-split where it improves performance.
+- Optimize for fast initial load and smooth user experience.
+
+---
+
+### Other Rules
+
+- Always write all the code required to implement the requested features, including tests if asked.
+- Never skip steps or leave out boilerplate unless explicitly told to.
+- If a feature requires configuration or setup (e.g., Tailwind, Shadcn UI), include those steps.
+- If you need to make assumptions, state them clearly.
+- If you are unsure about a requirement, ask for clarification before proceeding.
+
+---
+
+These rules ensure you deliver high-quality, modern, and maintainable code for every request.
