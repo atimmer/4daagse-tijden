@@ -1,97 +1,173 @@
 import React, { useEffect, useState } from "react";
-import MapView from "./components/MapView";
-import type { RouteData } from "./components/MapView";
 import RouteTogglePanel from "./components/RouteTogglePanel";
-import SpeedSelector from "./components/SpeedSelector";
 import StartTimeEditor from "./components/StartTimeEditor";
-import RoutePopup from "./components/RoutePopup";
-import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
-import { Popup } from "react-leaflet";
-import type { Feature, LineString, Position } from "geojson";
+import SpeedSelector from "./components/SpeedSelector";
+import MapView from "./components/MapView";
+import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import "./App.css";
+import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 
-// Route meta info
-const ROUTES = [
+const ROUTE_FILES = [
   {
-    name: "Dinsdag",
+    day: "Dinsdag",
     file: "/src/assets/routes/4Daagse_dinsdag_2025_complete.geojson",
-    color: "#2563eb",
-    defaultStart: "07:00",
   },
   {
-    name: "Woensdag",
+    day: "Woensdag",
     file: "/src/assets/routes/4Daagse_woensdag_2025_complete.geojson",
-    color: "#16a34a",
-    defaultStart: "07:00",
   },
   {
-    name: "Donderdag",
+    day: "Donderdag",
     file: "/src/assets/routes/4Daagse_donderdag_2025_complete.geojson",
-    color: "#f59e42",
-    defaultStart: "07:00",
   },
   {
-    name: "Vrijdag",
+    day: "Vrijdag",
     file: "/src/assets/routes/4Daagse_vrijdag_2025_complete.geojson",
-    color: "#dc2626",
-    defaultStart: "07:00",
   },
 ];
 
+const DISTANCE_COLORS: Record<string, string> = {
+  "50km": "#dc2626", // Red
+  "40km MIL": "#16a34a", // Green
+  "40km ML": "#16a34a", // Green (alt spelling)
+  "40km": "#facc15", // Yellow
+  "30km": "#2563eb", // Blue
+};
+
+const DISTANCE_LABELS: Record<string, string> = {
+  "50km": "50km",
+  "40km MIL": "40km militair",
+  "40km ML": "40km militair",
+  "40km": "40km",
+  "30km": "30km",
+};
+
 const SPEED_OPTIONS = [4, 5, 6];
 
+export interface RouteVariant {
+  id: string; // e.g. 'Dinsdag-30km'
+  day: string;
+  distance: string; // '30km', '40km', '40km MIL', '50km'
+  label: string; // e.g. '30km', '40km militair'
+  color: string;
+  geojson: FeatureCollection;
+  visible: boolean;
+  startTime: string;
+}
+
+const DEFAULT_START_TIMES: Record<string, string> = {
+  "50km": "04:00",
+  "40km MIL": "04:30",
+  "40km ML": "04:30",
+  "40km": "05:30",
+  "30km": "07:00",
+};
+
 const App: React.FC = () => {
-  const [routes, setRoutes] = useState<RouteData[]>([]);
-  const [startTimes, setStartTimes] = useState<{ [name: string]: string }>({});
+  const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
   const [speed, setSpeed] = useState<number>(5);
   const [hovered, setHovered] = useState<{
-    routeName: string;
+    id: string;
     pointIndex: number;
     latlng: [number, number];
   } | null>(null);
 
-  // Load GeoJSON files
   useEffect(() => {
     Promise.all(
-      ROUTES.map(async (route) => {
-        const geojson = await fetch(route.file).then((res) => res.json());
-        return {
-          name: route.name,
-          geojson,
-          color: route.color,
-          visible: true,
-        } as RouteData;
+      ROUTE_FILES.map(async ({ day, file }) => {
+        const geojson: FeatureCollection = await fetch(file).then((res) =>
+          res.json()
+        );
+        const byDistance: Record<string, Feature<LineString>[]> = {};
+        geojson.features.forEach((f) => {
+          if (
+            f.geometry.type === "LineString" &&
+            f.properties &&
+            f.properties.layer
+          ) {
+            const layer = f.properties.layer as string;
+            if (!byDistance[layer]) byDistance[layer] = [];
+            byDistance[layer].push(f as Feature<LineString>);
+          }
+        });
+        return Object.entries(byDistance).map(([distance, features]) => {
+          const variantGeojson: FeatureCollection = {
+            type: "FeatureCollection",
+            features,
+          };
+          const color = DISTANCE_COLORS[distance] || "#888";
+          const label = DISTANCE_LABELS[distance] || distance;
+          const id = `${day}-${distance}`;
+          return {
+            id,
+            day,
+            distance,
+            label,
+            color,
+            geojson: variantGeojson,
+            visible: false,
+            startTime: DEFAULT_START_TIMES[distance] || "07:00",
+          } as RouteVariant;
+        });
       })
-    ).then((loadedRoutes) => {
-      setRoutes(loadedRoutes);
-      setStartTimes(
-        Object.fromEntries(ROUTES.map((r) => [r.name, r.defaultStart]))
-      );
+    ).then((allVariants) => {
+      setRouteVariants(allVariants.flat());
     });
   }, []);
 
-  // Handlers
-  const handleToggleRoute = (routeName: string) => {
-    setRoutes((prev) =>
-      prev.map((r) =>
-        r.name === routeName ? { ...r, visible: !r.visible } : r
-      )
+  const groupedByDay = routeVariants.reduce<
+    Record<
+      string,
+      { id: string; label: string; color: string; visible: boolean }[]
+    >
+  >((acc, variant) => {
+    if (!acc[variant.day]) acc[variant.day] = [];
+    acc[variant.day].push({
+      id: variant.id,
+      label: variant.label,
+      color: variant.color,
+      visible: variant.visible,
+    });
+    return acc;
+  }, {});
+
+  const handleToggleVariant = (id: string) => {
+    setRouteVariants((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, visible: !v.visible } : v))
     );
   };
 
-  const handleSpeedChange = (newSpeed: number) => setSpeed(newSpeed);
+  const groupedVisibleByDay = routeVariants
+    .filter((v) => v.visible)
+    .reduce<Record<string, { id: string; label: string; startTime: string }[]>>(
+      (acc, variant) => {
+        if (!acc[variant.day]) acc[variant.day] = [];
+        acc[variant.day].push({
+          id: variant.id,
+          label: variant.label,
+          startTime: variant.startTime,
+        });
+        return acc;
+      },
+      {}
+    );
 
-  const handleStartTimeChange = (routeName: string, newTime: string) => {
-    setStartTimes((prev) => ({ ...prev, [routeName]: newTime }));
+  const handleStartTimeChange = (id: string, newTime: string) => {
+    setRouteVariants((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, startTime: newTime } : v))
+    );
   };
 
-  // Helper to get passage time info for popup
+  // Only pass visible variants to MapView
+  const visibleVariants = routeVariants.filter((v) => v.visible);
+
+  // Passage time popup info
   function getPopupInfo() {
     if (!hovered) return null;
-    const route = routes.find((r) => r.name === hovered.routeName);
-    if (!route) return null;
-    // Find the first LineString in the route
-    const feature = route.geojson.features.find(
+    const variant = routeVariants.find((v) => v.id === hovered.id);
+    if (!variant) return null;
+    // Find the first LineString in the variant
+    const feature = variant.geojson.features.find(
       (f) => f.geometry.type === "LineString"
     ) as Feature<LineString> | undefined;
     if (!feature) return null;
@@ -105,14 +181,14 @@ const App: React.FC = () => {
     );
     const dists = getCumulativeDistances(coords);
     const distanceKm = dists[hovered.pointIndex] || 0;
-    const startTime = startTimes[route.name] || "07:00";
+    const startTime = variant.startTime;
     // Show range for min/max speed
     const minSpeed = Math.min(...SPEED_OPTIONS);
     const maxSpeed = Math.max(...SPEED_OPTIONS);
     const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
     const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
     return {
-      routeName: route.name,
+      routeName: variant.label,
       distanceKm,
       timeRange: { earliest, latest },
       latlng: hovered.latlng,
@@ -126,26 +202,20 @@ const App: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4">
         Nijmeegse 4Daagse Passage Tijd Schatter
       </h1>
-      <RouteTogglePanel
-        routes={routes.map((r) => ({ name: r.name, visible: r.visible }))}
-        onToggle={handleToggleRoute}
-      />
+      <RouteTogglePanel grouped={groupedByDay} onToggle={handleToggleVariant} />
       <StartTimeEditor
-        startTimes={ROUTES.map((r) => ({
-          name: r.name,
-          time: startTimes[r.name] || r.defaultStart,
-        }))}
+        grouped={groupedVisibleByDay}
         onChange={handleStartTimeChange}
       />
       <SpeedSelector
         speed={speed}
         options={SPEED_OPTIONS}
-        onChange={handleSpeedChange}
+        onChange={setSpeed}
       />
       <MapView
-        routes={routes}
-        onPointHover={(routeName, pointIndex, latlng) =>
-          setHovered({ routeName, pointIndex, latlng })
+        routeVariants={visibleVariants}
+        onPointHover={(id, pointIndex, latlng) =>
+          setHovered({ id, pointIndex, latlng })
         }
         popupInfo={popupInfo}
       />

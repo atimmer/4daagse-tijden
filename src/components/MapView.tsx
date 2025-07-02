@@ -4,15 +4,19 @@ import type { FeatureCollection, LineString, Feature, Position } from "geojson";
 import "leaflet/dist/leaflet.css";
 import RoutePopup from "./RoutePopup";
 
-export interface RouteData {
-  name: string;
-  geojson: FeatureCollection;
+export interface RouteVariant {
+  id: string;
+  day: string;
+  distance: string;
+  label: string;
   color: string;
+  geojson: FeatureCollection;
   visible: boolean;
+  startTime: string;
 }
 
 export interface MapViewProps {
-  routes: RouteData[];
+  routeVariants: RouteVariant[];
   onPointHover?: (
     routeName: string,
     pointIndex: number,
@@ -48,12 +52,12 @@ function findClosestPointIndex(
 }
 
 const MapView: React.FC<MapViewProps> = ({
-  routes,
+  routeVariants,
   onPointHover,
   popupInfo,
 }) => {
   // Helper to extract all LineString features from a route
-  function getLineStringFeatures(route: RouteData): Feature<LineString>[] {
+  function getLineStringFeatures(route: RouteVariant): Feature<LineString>[] {
     return route.geojson.features.filter(
       (f): f is Feature<LineString> => f.geometry.type === "LineString"
     );
@@ -69,11 +73,11 @@ const MapView: React.FC<MapViewProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {routes
+      {routeVariants
         .filter((r) => r.visible)
         .map((route) => (
           <GeoJSON
-            key={route.name}
+            key={route.id}
             data={route.geojson}
             style={() => ({ color: route.color, weight: 4 })}
             eventHandlers={{
@@ -97,7 +101,7 @@ const MapView: React.FC<MapViewProps> = ({
                   e.latlng.lng
                 );
                 const [lng, lat] = coords[idx];
-                onPointHover(route.name, idx, [lat, lng]);
+                onPointHover(route.id, idx, [lat, lng]);
               },
             }}
           />

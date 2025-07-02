@@ -1,30 +1,35 @@
 import React from "react";
+import { Input } from "@/components/ui/input";
 
 export interface StartTimeEditorProps {
-  startTimes: { name: string; time: string }[];
-  onChange: (routeName: string, newTime: string) => void;
+  grouped: Record<string, { id: string; label: string; startTime: string }[]>; // day -> visible variants
+  onChange: (id: string, newTime: string) => void;
 }
 
 const StartTimeEditor: React.FC<StartTimeEditorProps> = ({
-  startTimes,
+  grouped,
   onChange,
 }) => {
   return (
-    <div className="flex gap-4 mb-4 items-center">
+    <div className="mb-4">
       <span className="font-medium">Starttijden:</span>
-      {startTimes.map((route) => (
-        <label
-          key={route.name}
-          className="flex items-center gap-1 cursor-pointer"
-        >
-          <span>{route.name}:</span>
-          <input
-            type="time"
-            value={route.time}
-            onChange={(e) => onChange(route.name, e.target.value)}
-            className="border rounded px-2 py-1 text-sm"
-          />
-        </label>
+      {Object.entries(grouped).map(([day, variants]) => (
+        <div key={day} className="mt-2 pl-2">
+          <div className="font-semibold mb-1">{day}</div>
+          <div className="flex flex-wrap gap-4">
+            {variants.map((variant) => (
+              <label key={variant.id} className="flex items-center gap-2">
+                <span>{variant.label}:</span>
+                <Input
+                  type="time"
+                  value={variant.startTime}
+                  onChange={(e) => onChange(variant.id, e.target.value)}
+                  className="w-24"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );

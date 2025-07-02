@@ -1,4 +1,5 @@
 import React from "react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export interface SpeedSelectorProps {
   speed: number;
@@ -12,21 +13,20 @@ const SpeedSelector: React.FC<SpeedSelectorProps> = ({
   onChange,
 }) => {
   return (
-    <div className="flex gap-4 mb-4 items-center">
+    <div className="mb-4 flex items-center gap-4">
       <span className="font-medium">Snelheid:</span>
-      {options.map((option) => (
-        <label key={option} className="flex items-center gap-1 cursor-pointer">
-          <input
-            type="radio"
-            name="speed"
-            value={option}
-            checked={speed === option}
-            onChange={() => onChange(option)}
-            className="accent-green-600"
-          />
-          <span>{option} km/u</span>
-        </label>
-      ))}
+      <RadioGroup
+        value={speed.toString()}
+        onValueChange={(v) => onChange(Number(v))}
+        className="flex flex-row gap-4"
+      >
+        {options.map((option) => (
+          <div key={option} className="flex items-center gap-1">
+            <RadioGroupItem value={option.toString()} id={`speed-${option}`} />
+            <label htmlFor={`speed-${option}`}>{option} km/u</label>
+          </div>
+        ))}
+      </RadioGroup>
     </div>
   );
 };
