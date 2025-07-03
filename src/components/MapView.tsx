@@ -1,8 +1,8 @@
 import React from "react";
-import { MapContainer, TileLayer, GeoJSON, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, CircleMarker } from "react-leaflet";
 import type { FeatureCollection, LineString, Feature, Position } from "geojson";
+import type { LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import RoutePopup from "./RoutePopup";
 import { getCumulativeDistances } from "../lib/utils";
 
 export interface RouteVariant {
@@ -16,15 +16,6 @@ export interface RouteVariant {
   startTime: string;
 }
 
-export interface RoutePopupInfo {
-  routeName: string;
-  color: string;
-  distanceKm: number;
-  timeRange: { earliest: string; latest: string };
-  latlng: [number, number];
-  direction?: string;
-}
-
 export interface MapViewProps {
   routeVariants: RouteVariant[];
   onPointHover?: (
@@ -32,21 +23,34 @@ export interface MapViewProps {
       | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
       | null
   ) => void;
-  popupInfo?: RoutePopupInfo[] | null;
+  hoveredPoint?: [number, number] | null;
 }
 
 const center: [number, number] = [51.842, 5.852]; // Nijmegen area
 
+const isTouchDevice = () => {
+  if (typeof window === "undefined") return false;
+  return (
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    // @ts-expect-error: msMaxTouchPoints is for legacy IE/Edge support
+    navigator.msMaxTouchPoints > 0
+  );
+};
+
 const MapView: React.FC<MapViewProps> = ({
   routeVariants,
   onPointHover,
-  popupInfo,
+  hoveredPoint,
 }) => {
+  // Use touch/click for mobile, hover for desktop
+  const eventType = isTouchDevice() ? "click" : "mousemove";
+
   return (
     <MapContainer
       center={center}
       zoom={12}
-      style={{ height: "70vh", width: "100%" }}
+      style={{ height: "100vh", width: "100vw" }}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -58,7 +62,7 @@ const MapView: React.FC<MapViewProps> = ({
           data={route.geojson}
           style={() => ({ color: route.color, weight: 4 })}
           eventHandlers={{
-            mousemove: (e) => {
+            [eventType]: (e: LeafletMouseEvent) => {
               if (!onPointHover) return;
               const hoveredLatLng: [number, number] = [
                 e.latlng.lat,
@@ -127,10 +131,12 @@ const MapView: React.FC<MapViewProps> = ({
           }}
         />
       ))}
-      {popupInfo && popupInfo.length > 0 && (
-        <Popup position={popupInfo[0].latlng}>
-          <RoutePopup routes={popupInfo} />
-        </Popup>
+      {hoveredPoint && (
+        <CircleMarker
+          center={hoveredPoint}
+          radius={10}
+          pathOptions={{ color: "#2563eb", fillColor: "#fff", fillOpacity: 1 }}
+        />
       )}
     </MapContainer>
   );

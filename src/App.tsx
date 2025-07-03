@@ -4,8 +4,8 @@ import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import "./App.css";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
-import type { RoutePopupInfo } from "./components/MapView";
 import SpeedRangeSelector from "./components/SpeedSelector";
+import RoutePopup from "./components/RoutePopup";
 
 const ROUTE_FILES = [
   {
@@ -63,6 +63,27 @@ const DEFAULT_START_TIMES: Record<string, string> = {
 
 const DAYS = ["Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
+// Add local type for RoutePopupInfo
+interface RoutePopupInfo {
+  routeName: string;
+  color: string;
+  distanceKm: number;
+  timeRange: { earliest: string; latest: string };
+  latlng: [number, number];
+  direction?: string;
+}
+
 const App: React.FC = () => {
   const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
   const [minSpeed, setMinSpeed] = useState<number>(4);
@@ -76,6 +97,11 @@ const App: React.FC = () => {
     | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
     | null
   >(null);
+  const [hoveredPoint, setHoveredPoint] = useState<[number, number] | null>(
+    null
+  );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     Promise.all(
@@ -242,8 +268,17 @@ const App: React.FC = () => {
 
   const popupInfo = getPopupInfo();
 
-  return (
-    <div className="max-w-5xl mx-auto p-4">
+  // Sidebar/Overlay content
+  const sidebarContent = (
+    <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full max-w-md">
+      <button
+        className="md:hidden self-end mb-2 text-lg"
+        onClick={() => setSidebarOpen(false)}
+        aria-label="Sluit menu"
+        style={{ display: isMobile ? "block" : "none" }}
+      >
+        ✕
+      </button>
       <h1 className="text-2xl font-bold mb-4">
         Nijmeegse 4Daagse Passage Tijd Schatter
       </h1>
@@ -265,11 +300,77 @@ const App: React.FC = () => {
           setMaxSpeed(max);
         }}
       />
-      <MapView
-        routeVariants={visibleVariants}
-        onPointHover={(hovered) => setHovered(hovered)}
-        popupInfo={popupInfo}
-      />
+      {popupInfo && popupInfo.length > 0 && (
+        <div className="mt-4">
+          <h2 className="text-lg font-semibold mb-2">Doorkomst info</h2>
+          {/* RoutePopup is a fixed window here */}
+          <div className="bg-gray-50 rounded shadow p-2">
+            <RoutePopup routes={popupInfo} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* Sidebar for desktop, overlay for mobile */}
+      <div
+        className={
+          isMobile
+            ? `fixed inset-0 z-30 bg-black/40 transition-opacity ${
+                sidebarOpen
+                  ? "opacity-100 pointer-events-auto"
+                  : "opacity-0 pointer-events-none"
+              }`
+            : "fixed left-0 top-0 bottom-0 z-20 w-full max-w-md bg-white shadow-lg"
+        }
+        style={
+          isMobile
+            ? { display: sidebarOpen ? "block" : "none" }
+            : { width: "350px" }
+        }
+        onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+      >
+        <div
+          className={
+            isMobile
+              ? `absolute left-0 top-0 bottom-0 w-80 max-w-full bg-white shadow-lg transition-transform ${
+                  sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                }`
+              : "h-full"
+          }
+          style={isMobile ? { height: "100vh" } : {}}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {sidebarContent}
+        </div>
+      </div>
+      {/* Toggle button for mobile */}
+      {isMobile && !sidebarOpen && (
+        <button
+          className="fixed top-4 left-4 z-40 bg-white rounded shadow p-2"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+      )}
+      {/* Map always full screen, but sidebar overlays it */}
+      <div className="absolute inset-0 z-10">
+        <MapView
+          routeVariants={visibleVariants}
+          onPointHover={(hovered) => {
+            setHovered(hovered);
+            if (hovered && hovered.length > 0) {
+              setHoveredPoint(hovered[0].latlng);
+            } else {
+              setHoveredPoint(null);
+            }
+          }}
+          hoveredPoint={hoveredPoint}
+        />
+      </div>
     </div>
   );
 };
