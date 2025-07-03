@@ -10,19 +10,19 @@ import type { RoutePopupInfo } from "./components/MapView";
 const ROUTE_FILES = [
   {
     day: "Dinsdag",
-    file: "/src/assets/routes/4Daagse_dinsdag_2025_complete.geojson",
+    file: "/4Daagse_dinsdag_2025_complete.geojson",
   },
   {
     day: "Woensdag",
-    file: "/src/assets/routes/4Daagse_woensdag_2025_complete.geojson",
+    file: "/4Daagse_woensdag_2025_complete.geojson",
   },
   {
     day: "Donderdag",
-    file: "/src/assets/routes/4Daagse_donderdag_2025_complete.geojson",
+    file: "/4Daagse_donderdag_2025_complete.geojson",
   },
   {
     day: "Vrijdag",
-    file: "/src/assets/routes/4Daagse_vrijdag_2025_complete.geojson",
+    file: "/4Daagse_vrijdag_2025_complete.geojson",
   },
 ];
 
