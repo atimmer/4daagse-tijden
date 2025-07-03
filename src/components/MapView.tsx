@@ -6,11 +6,10 @@ import {
   CircleMarker,
   useMapEvent,
 } from "react-leaflet";
-import type { FeatureCollection } from "geojson";
-import type { LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getRelevantRoutePoints } from "../lib/utils";
-import PieMarker from "./PieMarker";
+import type { FeatureCollection } from "geojson";
+import type { LeafletMouseEvent } from "leaflet";
 
 export interface RouteVariant {
   id: string;
@@ -102,19 +101,16 @@ const MapView: React.FC<MapViewProps> = ({
         />
       ))}
       {/* Custom marker logic */}
-      {hoveredPoint && hoveredColors.length === 1 && (
+      {hoveredPoint && (
         <CircleMarker
           center={hoveredPoint}
           radius={10}
           pathOptions={{
-            color: hoveredColors[0],
+            color: hoveredColors.length === 1 ? hoveredColors[0] : "#000",
             fillColor: "#fff",
             fillOpacity: 1,
           }}
         />
-      )}
-      {hoveredPoint && hoveredColors.length > 1 && (
-        <PieMarker center={hoveredPoint} colors={hoveredColors} />
       )}
     </MapContainer>
   );
