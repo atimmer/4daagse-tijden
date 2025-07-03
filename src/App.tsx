@@ -4,7 +4,7 @@ import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 import SpeedRangeSelector from "./components/SpeedSelector";
-import RoutePopup from "./components/RoutePopup";
+import InfoWindow from "./components/InfoWindow";
 
 const ROUTE_FILES = [
   {
@@ -299,15 +299,6 @@ const App: React.FC = () => {
           setMaxSpeed(max);
         }}
       />
-      {popupInfo && popupInfo.length > 0 && (
-        <div className="mt-4">
-          <h2 className="text-lg font-semibold mb-2">Doorkomst info</h2>
-          {/* RoutePopup is a fixed window here */}
-          <div className="bg-gray-50 rounded shadow p-2">
-            <RoutePopup routes={popupInfo} />
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -371,6 +362,8 @@ const App: React.FC = () => {
           hoveredRoutes={hovered}
         />
       </div>
+      {/* InfoWindow for Doorkomst info, always visible */}
+      <InfoWindow popupInfo={popupInfo} isMobile={isMobile} />
     </div>
   );
 };
