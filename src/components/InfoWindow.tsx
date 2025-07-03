@@ -37,25 +37,26 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
   );
 
   // Summary for advertising drawer when a point is selected
-  const summary =
-    popupInfo && popupInfo.length > 0 ? (
+  let summary = infoText;
+  if (popupInfo && popupInfo.length > 0) {
+    // Find min and max time across all routes
+    const times = popupInfo.map((r) => [
+      r.timeRange.earliest,
+      r.timeRange.latest,
+    ]);
+    // Flatten and sort times
+    const allTimes = times.flat();
+    // Sort as strings (HH:mm)
+    const sorted = allTimes.slice().sort();
+    const minTime = sorted[0];
+    const maxTime = sorted[sorted.length - 1];
+    summary = (
       <div className="p-3 text-sm text-gray-700">
-        <b>Doorkomst info</b>
-        <div className="mt-1">
-          {popupInfo.map((r, i) => (
-            <div key={i} className="mb-1 last:mb-0">
-              <span className="font-semibold" style={{ color: r.color }}>
-                {r.routeName}
-              </span>
-              : {r.timeRange.earliest} – {r.timeRange.latest}
-            </div>
-          ))}
-        </div>
+        <b>Doorkomst</b>: {minTime} – {maxTime}
         <div className="text-xs text-gray-400 mt-2">Tik voor meer info</div>
       </div>
-    ) : (
-      infoText
     );
+  }
 
   if (isMobile && drawerOpen !== undefined && setDrawerOpen) {
     // AdvertisingDrawer is always visible at the bottom
