@@ -73,39 +73,37 @@ const MapView: React.FC<MapViewProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {routeVariants
-        .filter((r) => r.visible)
-        .map((route) => (
-          <GeoJSON
-            key={route.id}
-            data={route.geojson}
-            style={() => ({ color: route.color, weight: 4 })}
-            eventHandlers={{
-              mousemove: (e) => {
-                if (!onPointHover) return;
-                // Filter only [number, number] coordinates
-                const coords = (
-                  getLineStringFeatures(route)[0].geometry
-                    .coordinates as Position[]
-                ).filter(
-                  (c): c is [number, number] =>
-                    Array.isArray(c) &&
-                    c.length >= 2 &&
-                    typeof c[0] === "number" &&
-                    typeof c[1] === "number"
-                );
-                if (coords.length === 0) return;
-                const idx = findClosestPointIndex(
-                  coords,
-                  e.latlng.lat,
-                  e.latlng.lng
-                );
-                const [lng, lat] = coords[idx];
-                onPointHover(route.id, idx, [lat, lng]);
-              },
-            }}
-          />
-        ))}
+      {routeVariants.map((route) => (
+        <GeoJSON
+          key={route.id}
+          data={route.geojson}
+          style={() => ({ color: route.color, weight: 4 })}
+          eventHandlers={{
+            mousemove: (e) => {
+              if (!onPointHover) return;
+              // Filter only [number, number] coordinates
+              const coords = (
+                getLineStringFeatures(route)[0].geometry
+                  .coordinates as Position[]
+              ).filter(
+                (c): c is [number, number] =>
+                  Array.isArray(c) &&
+                  c.length >= 2 &&
+                  typeof c[0] === "number" &&
+                  typeof c[1] === "number"
+              );
+              if (coords.length === 0) return;
+              const idx = findClosestPointIndex(
+                coords,
+                e.latlng.lat,
+                e.latlng.lng
+              );
+              const [lng, lat] = coords[idx];
+              onPointHover(route.id, idx, [lat, lng]);
+            },
+          }}
+        />
+      ))}
       {popupInfo && (
         <Popup position={popupInfo.latlng}>
           <RoutePopup

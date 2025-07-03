@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import RouteTogglePanel from "./components/RouteTogglePanel";
-import StartTimeEditor from "./components/StartTimeEditor";
+import RouteSelector from "./components/RouteSelector";
 import SpeedSelector from "./components/SpeedSelector";
 import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
@@ -63,9 +62,16 @@ const DEFAULT_START_TIMES: Record<string, string> = {
   "30km": "07:00",
 };
 
+const DAYS = ["Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
+
 const App: React.FC = () => {
   const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
   const [speed, setSpeed] = useState<number>(5);
+  const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
+  const [selectedDistancesByDay, setSelectedDistancesByDay] = useState<
+    Record<string, string[]>
+  >({});
+  const [startTimes, setStartTimes] = useState<Record<string, string>>({});
   const [hovered, setHovered] = useState<{
     id: string;
     pointIndex: number;
@@ -115,51 +121,69 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const groupedByDay = routeVariants.reduce<
-    Record<
+  // Build distancesByDay for RouteSelector
+  const distancesByDay: Record<
+    string,
+    { key: string; label: string; color: string }[]
+  > = React.useMemo(() => {
+    const byDay: Record<
       string,
-      { id: string; label: string; color: string; visible: boolean }[]
-    >
-  >((acc, variant) => {
-    if (!acc[variant.day]) acc[variant.day] = [];
-    acc[variant.day].push({
-      id: variant.id,
-      label: variant.label,
-      color: variant.color,
-      visible: variant.visible,
+      { key: string; label: string; color: string }[]
+    > = {};
+    for (const v of routeVariants) {
+      if (!byDay[v.day]) byDay[v.day] = [];
+      if (!byDay[v.day].some((d) => d.key === v.id)) {
+        byDay[v.day].push({ key: v.id, label: v.label, color: v.color });
+      }
+    }
+    return byDay;
+  }, [routeVariants]);
+
+  // On first load, set selectedDistances for each day to all available
+  React.useEffect(() => {
+    setSelectedDistancesByDay((prev) => {
+      const next = { ...prev };
+      for (const day of DAYS) {
+        if (!next[day] && distancesByDay[day]) {
+          next[day] = distancesByDay[day].map((d) => d.key);
+        }
+      }
+      return next;
     });
-    return acc;
-  }, {});
+  }, [distancesByDay]);
 
-  const handleToggleVariant = (id: string) => {
+  // When day changes, get selected distances or fallback to all for that day
+  const selectedDistances =
+    selectedDistancesByDay[selectedDay] &&
+    selectedDistancesByDay[selectedDay].length > 0
+      ? selectedDistancesByDay[selectedDay]
+      : distancesByDay[selectedDay]?.map((d) => d.key) || [];
+
+  // Toggle distance for selected day
+  const handleDistanceToggle = (distanceKey: string) => {
+    setSelectedDistancesByDay((prev) => {
+      const current = prev[selectedDay] || [];
+      return {
+        ...prev,
+        [selectedDay]: current.includes(distanceKey)
+          ? current.filter((k) => k !== distanceKey)
+          : [...current, distanceKey],
+      };
+    });
+  };
+
+  // Start time change for a distance
+  const handleStartTimeChange = (distanceKey: string, newTime: string) => {
+    setStartTimes((prev) => ({ ...prev, [distanceKey]: newTime }));
     setRouteVariants((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, visible: !v.visible } : v))
+      prev.map((v) => (v.id === distanceKey ? { ...v, startTime: newTime } : v))
     );
   };
 
-  const groupedVisibleByDay = routeVariants
-    .filter((v) => v.visible)
-    .reduce<Record<string, { id: string; label: string; startTime: string }[]>>(
-      (acc, variant) => {
-        if (!acc[variant.day]) acc[variant.day] = [];
-        acc[variant.day].push({
-          id: variant.id,
-          label: variant.label,
-          startTime: variant.startTime,
-        });
-        return acc;
-      },
-      {}
-    );
-
-  const handleStartTimeChange = (id: string, newTime: string) => {
-    setRouteVariants((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, startTime: newTime } : v))
-    );
-  };
-
-  // Only pass visible variants to MapView
-  const visibleVariants = routeVariants.filter((v) => v.visible);
+  // Only show visible variants for selected day and selected distances
+  const visibleVariants = routeVariants.filter(
+    (v) => v.day === selectedDay && selectedDistances.includes(v.id)
+  );
 
   // Passage time popup info
   function getPopupInfo() {
@@ -202,10 +226,15 @@ const App: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4">
         Nijmeegse 4Daagse Passage Tijd Schatter
       </h1>
-      <RouteTogglePanel grouped={groupedByDay} onToggle={handleToggleVariant} />
-      <StartTimeEditor
-        grouped={groupedVisibleByDay}
-        onChange={handleStartTimeChange}
+      <RouteSelector
+        days={DAYS}
+        distancesByDay={distancesByDay}
+        selectedDay={selectedDay}
+        onDayChange={setSelectedDay}
+        selectedDistances={selectedDistances}
+        onDistanceToggle={handleDistanceToggle}
+        startTimes={startTimes}
+        onStartTimeChange={handleStartTimeChange}
       />
       <SpeedSelector
         speed={speed}
