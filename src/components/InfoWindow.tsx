@@ -102,7 +102,7 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
           onOpenChange={setDrawerOpen}
         >
           <DrawerContent className="max-w-sm mx-auto w-full z-50">
-            <div className="p-2">
+            <div className="p-2 max-h-[70vh] overflow-y-auto">
               <div className="font-semibold mb-2">Doorkomst info</div>
               {popupInfo && popupInfo.length > 0 ? (
                 <RoutePopup routes={popupInfo} />
