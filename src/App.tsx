@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import RouteSelector from "./components/RouteSelector";
+import RouteSelector, { DaySelector } from "./components/RouteSelector";
 import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 import SpeedRangeSelector from "./components/SpeedSelector";
 import InfoWindow from "./components/InfoWindow";
+import { useIsMobile } from "./lib/layout-hooks";
 
 const ROUTE_FILES = [
   {
@@ -61,17 +62,6 @@ const DEFAULT_START_TIMES: Record<string, string> = {
 };
 
 const DAYS = ["Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-  return isMobile;
-}
 
 // Add local type for RoutePopupInfo
 interface RoutePopupInfo {
@@ -283,10 +273,8 @@ const App: React.FC = () => {
         Nijmeegse 4Daagse Passage Tijd Schatter
       </h1>
       <RouteSelector
-        days={DAYS}
         distancesByDay={distancesByDay}
         selectedDay={selectedDay}
-        onDayChange={setSelectedDay}
         selectedDistances={selectedDistances}
         onDistanceToggle={handleDistanceToggle}
         startTimes={startTimes}
@@ -303,8 +291,28 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Floating DaySelector bar
+  const daySelectorBar = (
+    <div
+      className={
+        " " +
+        (isMobile
+          ? "fixed top-4 right-4 z-40 justify-center gap-2"
+          : "fixed top-4 left-1/2 transform -translate-x-1/2 z-40 justify-center items-center")
+      }
+    >
+      <DaySelector
+        days={DAYS}
+        selectedDay={selectedDay}
+        onDayChange={setSelectedDay}
+        className="gap-2"
+      />
+    </div>
+  );
+
   return (
     <div className="w-screen h-screen overflow-hidden relative">
+      {daySelectorBar}
       {/* Sidebar for desktop, overlay for mobile */}
       <div
         className={

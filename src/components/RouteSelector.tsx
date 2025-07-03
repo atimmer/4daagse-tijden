@@ -1,17 +1,72 @@
 import React from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { useIsMobile } from "../lib/layout-hooks";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export interface DaySelectorProps {
+  days: string[];
+  selectedDay: string;
+  onDayChange: (day: string) => void;
+  className?: string;
+}
+
+export const DaySelector: React.FC<DaySelectorProps> = ({
+  days,
+  selectedDay,
+  onDayChange,
+  className,
+}) => {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <Select onValueChange={onDayChange} value={selectedDay}>
+        <SelectTrigger className="bg-white w-[150px]">
+          <SelectValue placeholder="Selecteer een dag" />
+        </SelectTrigger>
+        <SelectContent>
+          {days.map((day) => (
+            <SelectItem key={day} value={day}>
+              {day}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  return (
+    <div className={`flex gap-2 ${className || ""}`}>
+      {days.map((day) => (
+        <Button
+          key={day}
+          variant={selectedDay === day ? "default" : "outline"}
+          onClick={() => onDayChange(day)}
+          className={selectedDay === day ? "font-bold" : ""}
+          aria-pressed={selectedDay === day}
+        >
+          {day}
+        </Button>
+      ))}
+    </div>
+  );
+};
 
 export interface RouteSelectorProps {
-  days: string[];
   distancesByDay: Record<
     string,
     { key: string; label: string; color: string }[]
   >;
   selectedDay: string;
-  onDayChange: (day: string) => void;
   selectedDistances: string[]; // keys of selected distances for the selected day
   onDistanceToggle: (distanceKey: string) => void;
   startTimes: Record<string, string>; // distanceKey -> time
@@ -19,55 +74,40 @@ export interface RouteSelectorProps {
 }
 
 const RouteSelector: React.FC<RouteSelectorProps> = ({
-  days,
   distancesByDay,
   selectedDay,
-  onDayChange,
   selectedDistances,
   onDistanceToggle,
   startTimes,
   onStartTimeChange,
 }) => {
   return (
-    <Tabs value={selectedDay} onValueChange={onDayChange} className="mb-4">
-      <TabsList className="mb-2">
-        {days.map((day) => (
-          <TabsTrigger key={day} value={day} className="capitalize">
-            {day}
-          </TabsTrigger>
+    <div className="mb-4">
+      <div className="flex flex-col gap-2">
+        {distancesByDay[selectedDay]?.map((dist) => (
+          <Label key={dist.key} className="flex items-center gap-3">
+            <Checkbox
+              checked={selectedDistances.includes(dist.key)}
+              onCheckedChange={() => onDistanceToggle(dist.key)}
+              id={dist.key}
+            />
+            <span
+              className="inline-block w-3 h-3 rounded-full"
+              style={{ backgroundColor: dist.color }}
+            ></span>
+            <span className="select-none">{dist.label}</span>
+            {selectedDistances.includes(dist.key) && (
+              <Input
+                type="time"
+                value={startTimes[dist.key] || "07:00"}
+                onChange={(e) => onStartTimeChange(dist.key, e.target.value)}
+                className="w-24 ml-2"
+              />
+            )}
+          </Label>
         ))}
-      </TabsList>
-      {days.map((day) => (
-        <TabsContent key={day} value={day}>
-          <div className="flex flex-col gap-2">
-            {distancesByDay[day]?.map((dist) => (
-              <Label key={dist.key} className="flex items-center gap-3">
-                <Checkbox
-                  checked={selectedDistances.includes(dist.key)}
-                  onCheckedChange={() => onDistanceToggle(dist.key)}
-                  id={dist.key}
-                />
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ backgroundColor: dist.color }}
-                ></span>
-                <span className="select-none">{dist.label}</span>
-                {selectedDistances.includes(dist.key) && (
-                  <Input
-                    type="time"
-                    value={startTimes[dist.key] || "07:00"}
-                    onChange={(e) =>
-                      onStartTimeChange(dist.key, e.target.value)
-                    }
-                    className="w-24 ml-2"
-                  />
-                )}
-              </Label>
-            ))}
-          </div>
-        </TabsContent>
-      ))}
-    </Tabs>
+      </div>
+    </div>
   );
 };
 
