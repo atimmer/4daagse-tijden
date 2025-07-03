@@ -59,7 +59,7 @@ const DEFAULT_START_TIMES: Record<string, string> = {
   "50km": "04:00",
   "40km MIL": "04:30",
   "40km ML": "04:30",
-  "40km": "05:30",
+  "40km": "05:00",
   "30km": "07:00",
 };
 
@@ -104,6 +104,14 @@ const App: React.FC = () => {
           const color = DISTANCE_COLORS[distance] || "#888";
           const label = DISTANCE_LABELS[distance] || distance;
           const id = `${day}-${distance}`;
+          // Special Friday logic for military
+          let startTime = DEFAULT_START_TIMES[distance] || "07:00";
+          if (
+            day === "Vrijdag" &&
+            (distance === "40km MIL" || distance === "40km ML")
+          ) {
+            startTime = "03:30";
+          }
           return {
             id,
             day,
@@ -112,12 +120,19 @@ const App: React.FC = () => {
             color,
             geojson: variantGeojson,
             visible: false,
-            startTime: DEFAULT_START_TIMES[distance] || "07:00",
+            startTime,
           } as RouteVariant;
         });
       })
     ).then((allVariants) => {
-      setRouteVariants(allVariants.flat());
+      const flatVariants = allVariants.flat();
+      setRouteVariants(flatVariants);
+      // Set startTimes state for each variant
+      const initialStartTimes: Record<string, string> = {};
+      for (const v of flatVariants) {
+        initialStartTimes[v.id] = v.startTime;
+      }
+      setStartTimes(initialStartTimes);
     });
   }, []);
 
