@@ -42,9 +42,7 @@ export function estimatePassageTime(
 }
 
 // Given a GeoJSON LineString, return an array of cumulative distances (km) for each point
-export function getCumulativeDistances(
-  coordinates: [number, number][]
-): number[] {
+export function getCumulativeDistances(coordinates: Point[]): number[] {
   let total = 0;
   const result = [0];
   for (let i = 1; i < coordinates.length; i++) {
@@ -54,20 +52,28 @@ export function getCumulativeDistances(
   return result;
 }
 
-// Returns an array of { routeId, pointIndices, latlng } for relevant points near hoveredLatLng
-export function getRelevantRoutePoints(
-  hoveredLatLng: [number, number],
+export type Point = [number, number];
+
+/**
+ * Find the closest point on any route to the hoveredLatLng
+ *
+ * @param hoveredLatLng - The point to find the closest point to
+ * @param routeVariants - The routes to search in
+ *
+ * @returns The closest point on any route to the hoveredLatLng
+ */
+function findClosestPoint(
+  hoveredLatLng: Point,
   routeVariants: RouteVariant[]
-): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
-  const results: {
-    routeId: string;
-    pointIndices: number[];
-    latlng: [number, number];
-  }[] = [];
-  for (const r of routeVariants) {
-    const features = r.geojson.features.filter(
+): Point {
+  let closestPoint: Point = hoveredLatLng;
+  let minDistance = Infinity;
+
+  for (const route of routeVariants) {
+    const features = route.geojson.features.filter(
       (f): f is Feature<LineString> => f.geometry.type === "LineString"
     );
+
     for (const feature of features) {
       const coords = (feature.geometry.coordinates as Position[]).filter(
         (c): c is [number, number] =>
@@ -76,39 +82,98 @@ export function getRelevantRoutePoints(
           typeof c[0] === "number" &&
           typeof c[1] === "number"
       );
-      // 1. Find all indices within 100 meters
+
+      for (const [lng, lat] of coords) {
+        const distance = haversineDistance(hoveredLatLng, [lat, lng]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPoint = [lat, lng];
+        }
+      }
+    }
+  }
+
+  return closestPoint;
+}
+
+/**
+ * Based on the given point, finds all points that are relevant to the user
+ *
+ * Steps:
+ * - Find all points within 100 meters of the given point
+ * - Order by distance from the given point
+ * - Deduplicate: only keep points whose cumulative distances from start differ by at least 1km
+ *
+ */
+function findRelevantRoutePoints(
+  point: Point,
+  routeVariants: RouteVariant[]
+): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
+  const results: {
+    routeId: string;
+    pointIndices: number[];
+    latlng: [number, number];
+  }[] = [];
+
+  for (const route of routeVariants) {
+    const features = route.geojson.features.filter(
+      (f): f is Feature<LineString> => f.geometry.type === "LineString"
+    );
+
+    for (const feature of features) {
+      const coords = (feature.geometry.coordinates as Position[]).filter(
+        (c): c is [number, number] =>
+          Array.isArray(c) &&
+          c.length >= 2 &&
+          typeof c[0] === "number" &&
+          typeof c[1] === "number"
+      );
+
+      // Find points within 100m and calculate distances
       const pointsWithDist = coords
         .map(([lng, lat], idx) => ({
-          idx,
-          dist: Math.sqrt(
-            Math.pow(lat - hoveredLatLng[0], 2) +
-              Math.pow(lng - hoveredLatLng[1], 2)
-          ),
-          coord: [lng, lat] as [number, number],
+          index: idx,
+          point: [lat, lng] as Point,
+          dist: haversineDistance(point, [lat, lng]),
         }))
-        .filter(({ dist }) => dist < 0.001); // ~100m
-      // 2. Order by distance
+        .filter(({ dist }) => dist <= 0.1); // 100m = 0.1km
+
+      // Sort by distance
       pointsWithDist.sort((a, b) => a.dist - b.dist);
-      // 3. Deduplicate: only keep points whose cumulative distances from start differ by at least 1km
+
+      // Get cumulative distances from start
       const cumDists = getCumulativeDistances(coords);
-      const deduped: typeof pointsWithDist = [];
-      for (const pt of pointsWithDist) {
-        if (
-          deduped.every((d) => Math.abs(cumDists[pt.idx] - cumDists[d.idx]) > 1)
-        ) {
-          deduped.push(pt);
-        }
-        if (deduped.length === 2) break; // Only keep up to 2
-      }
-      // 4. Only show the 1 or 2 closest points per route
+
+      // Deduplicate based on cumulative distance
+      const deduped = pointsWithDist.filter((pt, idx) =>
+        pointsWithDist
+          .slice(0, idx)
+          .every(
+            (other) => Math.abs(cumDists[pt.index] - cumDists[other.index]) > 1
+          )
+      );
+
       if (deduped.length > 0) {
         results.push({
-          routeId: r.id,
-          pointIndices: deduped.map((d) => d.idx),
-          latlng: hoveredLatLng,
+          routeId: route.id,
+          pointIndices: deduped.map((d) => d.index),
+          latlng: deduped[0].point,
         });
       }
     }
   }
   return results;
+}
+
+// Returns an array of { routeId, pointIndices, latlng } for relevant points near hoveredLatLng
+export function getRelevantRoutePoints(
+  hoveredLatLng: Point,
+  routeVariants: RouteVariant[]
+): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
+  const closestPoint = findClosestPoint(hoveredLatLng, routeVariants);
+  const relevantRoutePoints = findRelevantRoutePoints(
+    closestPoint,
+    routeVariants
+  );
+  return relevantRoutePoints;
 }
