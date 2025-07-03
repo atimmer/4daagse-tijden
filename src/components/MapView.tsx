@@ -1,5 +1,11 @@
 import React from "react";
-import { MapContainer, TileLayer, GeoJSON, CircleMarker } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  GeoJSON,
+  CircleMarker,
+  useMapEvent,
+} from "react-leaflet";
 import type { FeatureCollection, LineString, Feature, Position } from "geojson";
 import type { LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -38,20 +44,37 @@ const isTouchDevice = () => {
   );
 };
 
+const MapEventHandler: React.FC<{
+  routeVariants: RouteVariant[];
+  onPointHover?: MapViewProps["onPointHover"];
+}> = ({ routeVariants, onPointHover }) => {
+  const eventType = isTouchDevice() ? "click" : "mousemove";
+  useMapEvent(eventType, (e: LeafletMouseEvent) => {
+    if (!onPointHover) return;
+    const hoveredLatLng: [number, number] = [e.latlng.lat, e.latlng.lng];
+    const results = getRelevantRoutePoints(hoveredLatLng, routeVariants);
+    if (results.length > 0) {
+      onPointHover(results);
+    }
+  });
+  return null;
+};
+
 const MapView: React.FC<MapViewProps> = ({
   routeVariants,
   onPointHover,
   hoveredPoint,
 }) => {
-  // Use touch/click for mobile, hover for desktop
-  const eventType = isTouchDevice() ? "click" : "mousemove";
-
   return (
     <MapContainer
       center={center}
       zoom={12}
       style={{ height: "100vh", width: "100vw" }}
     >
+      <MapEventHandler
+        routeVariants={routeVariants}
+        onPointHover={onPointHover}
+      />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -61,22 +84,6 @@ const MapView: React.FC<MapViewProps> = ({
           key={route.id}
           data={route.geojson}
           style={() => ({ color: route.color, weight: 4 })}
-          eventHandlers={{
-            [eventType]: (e: LeafletMouseEvent) => {
-              if (!onPointHover) return;
-              const hoveredLatLng: [number, number] = [
-                e.latlng.lat,
-                e.latlng.lng,
-              ];
-              const results = getRelevantRoutePoints(
-                hoveredLatLng,
-                routeVariants
-              );
-              if (results.length > 0) {
-                onPointHover(results);
-              }
-            },
-          }}
         />
       ))}
       {hoveredPoint && (

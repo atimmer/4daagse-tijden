@@ -171,6 +171,13 @@ export function getRelevantRoutePoints(
   routeVariants: RouteVariant[]
 ): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
   const closestPoint = findClosestPoint(hoveredLatLng, routeVariants);
+
+  const distance = haversineDistance(hoveredLatLng, closestPoint);
+  // If the distance is greater than 0.5km, return an empty array
+  if (distance > 1) {
+    return [];
+  }
+
   const relevantRoutePoints = findRelevantRoutePoints(
     closestPoint,
     routeVariants
