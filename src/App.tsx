@@ -101,6 +101,7 @@ const App: React.FC = () => {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     Promise.all(
@@ -363,7 +364,12 @@ const App: React.FC = () => {
         />
       </div>
       {/* InfoWindow for Doorkomst info, always visible */}
-      <InfoWindow popupInfo={popupInfo} isMobile={isMobile} />
+      <InfoWindow
+        popupInfo={popupInfo}
+        isMobile={isMobile}
+        drawerOpen={drawerOpen}
+        setDrawerOpen={setDrawerOpen}
+      />
     </div>
   );
 };
