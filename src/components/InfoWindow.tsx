@@ -67,7 +67,9 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
           className="fixed left-1/2 -translate-x-1/2 bottom-4 z-40 bg-white shadow-lg rounded-lg border border-gray-200 px-4 py-2 font-medium text-sm w-[95vw] max-w-sm"
           aria-label="Toon doorkomst info"
           style={{ userSelect: "none" }}
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => {
+            if (popupInfo && popupInfo.length > 0) setDrawerOpen(true);
+          }}
         >
           {summary}
         </button>
