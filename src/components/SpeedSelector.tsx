@@ -1,34 +1,64 @@
 import React from "react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-export interface SpeedSelectorProps {
-  speed: number;
-  options: number[];
-  onChange: (speed: number) => void;
+export interface SpeedRangeSelectorProps {
+  minSpeed: number;
+  maxSpeed: number;
+  onChange: (min: number, max: number) => void;
 }
 
-const SpeedSelector: React.FC<SpeedSelectorProps> = ({
-  speed,
-  options,
+const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
+  minSpeed,
+  maxSpeed,
   onChange,
 }) => {
   return (
-    <div className="mb-4 flex items-center gap-4">
-      <span className="font-medium">Snelheid:</span>
-      <RadioGroup
-        value={speed.toString()}
-        onValueChange={(v) => onChange(Number(v))}
-        className="flex flex-row gap-4"
-      >
-        {options.map((option) => (
-          <div key={option} className="flex items-center gap-1">
-            <RadioGroupItem value={option.toString()} id={`speed-${option}`} />
-            <label htmlFor={`speed-${option}`}>{option} km/u</label>
-          </div>
-        ))}
-      </RadioGroup>
+    <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="min-speed">Langzaamste snelheid</Label>
+        <Input
+          id="min-speed"
+          type="number"
+          min={0}
+          max={11}
+          step={0.1}
+          value={minSpeed}
+          onChange={(e) => {
+            const min = Math.max(0, Math.min(11, Number(e.target.value)));
+            if (min > maxSpeed) {
+              onChange(min, min);
+            } else {
+              onChange(min, maxSpeed);
+            }
+          }}
+          className="w-28"
+        />
+        <span className="text-xs text-muted-foreground">km/u</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="max-speed">Snelste snelheid</Label>
+        <Input
+          id="max-speed"
+          type="number"
+          min={0}
+          max={11}
+          step={0.1}
+          value={maxSpeed}
+          onChange={(e) => {
+            const max = Math.max(0, Math.min(11, Number(e.target.value)));
+            if (minSpeed > max) {
+              onChange(max, max);
+            } else {
+              onChange(minSpeed, max);
+            }
+          }}
+          className="w-28"
+        />
+        <span className="text-xs text-muted-foreground">km/u</span>
+      </div>
     </div>
   );
 };
 
-export default SpeedSelector;
+export default SpeedRangeSelector;

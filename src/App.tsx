@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import RouteSelector from "./components/RouteSelector";
-import SpeedSelector from "./components/SpeedSelector";
 import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import "./App.css";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 import type { RoutePopupInfo } from "./components/MapView";
+import SpeedRangeSelector from "./components/SpeedSelector";
 
 const ROUTE_FILES = [
   {
@@ -42,8 +42,6 @@ const DISTANCE_LABELS: Record<string, string> = {
   "30km": "30km",
 };
 
-const SPEED_OPTIONS = [4, 5, 6];
-
 export interface RouteVariant {
   id: string; // e.g. 'Dinsdag-30km'
   day: string;
@@ -67,7 +65,8 @@ const DAYS = ["Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
 
 const App: React.FC = () => {
   const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
-  const [speed, setSpeed] = useState<number>(5);
+  const [minSpeed, setMinSpeed] = useState<number>(4);
+  const [maxSpeed, setMaxSpeed] = useState<number>(6);
   const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
   const [selectedDistancesByDay, setSelectedDistancesByDay] = useState<
     Record<string, string[]>
@@ -223,8 +222,6 @@ const App: React.FC = () => {
         return pointIndices.map((pointIndex, i) => {
           const distanceKm = dists[pointIndex] || 0;
           const startTime = variant.startTime;
-          const minSpeed = Math.min(...SPEED_OPTIONS);
-          const maxSpeed = Math.max(...SPEED_OPTIONS);
           const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
           const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
           return {
@@ -260,10 +257,13 @@ const App: React.FC = () => {
         startTimes={startTimes}
         onStartTimeChange={handleStartTimeChange}
       />
-      <SpeedSelector
-        speed={speed}
-        options={SPEED_OPTIONS}
-        onChange={setSpeed}
+      <SpeedRangeSelector
+        minSpeed={minSpeed}
+        maxSpeed={maxSpeed}
+        onChange={(min, max) => {
+          setMinSpeed(min);
+          setMaxSpeed(max);
+        }}
       />
       <MapView
         routeVariants={visibleVariants}
