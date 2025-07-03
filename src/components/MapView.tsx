@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, GeoJSON, Popup } from "react-leaflet";
 import type { FeatureCollection, LineString, Feature, Position } from "geojson";
 import "leaflet/dist/leaflet.css";
 import RoutePopup from "./RoutePopup";
+import { getCumulativeDistances } from "../lib/utils";
 
 export interface RouteVariant {
   id: string;
@@ -15,54 +16,32 @@ export interface RouteVariant {
   startTime: string;
 }
 
+export interface RoutePopupInfo {
+  routeName: string;
+  color: string;
+  distanceKm: number;
+  timeRange: { earliest: string; latest: string };
+  latlng: [number, number];
+  direction?: string;
+}
+
 export interface MapViewProps {
   routeVariants: RouteVariant[];
   onPointHover?: (
-    routeName: string,
-    pointIndex: number,
-    latlng: [number, number]
+    hoveredRoutes:
+      | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
+      | null
   ) => void;
-  popupInfo?: {
-    routeName: string;
-    distanceKm: number;
-    timeRange: { earliest: string; latest: string };
-    latlng: [number, number];
-  } | null;
+  popupInfo?: RoutePopupInfo[] | null;
 }
 
 const center: [number, number] = [51.842, 5.852]; // Nijmegen area
-
-// Helper to find closest point index on a LineString to a given latlng
-function findClosestPointIndex(
-  coords: [number, number][],
-  lat: number,
-  lng: number
-): number {
-  let minDist = Infinity;
-  let minIdx = 0;
-  for (let i = 0; i < coords.length; i++) {
-    const [clng, clat] = coords[i];
-    const d = Math.pow(clat - lat, 2) + Math.pow(clng - lng, 2);
-    if (d < minDist) {
-      minDist = d;
-      minIdx = i;
-    }
-  }
-  return minIdx;
-}
 
 const MapView: React.FC<MapViewProps> = ({
   routeVariants,
   onPointHover,
   popupInfo,
 }) => {
-  // Helper to extract all LineString features from a route
-  function getLineStringFeatures(route: RouteVariant): Feature<LineString>[] {
-    return route.geojson.features.filter(
-      (f): f is Feature<LineString> => f.geometry.type === "LineString"
-    );
-  }
-
   return (
     <MapContainer
       center={center}
@@ -81,36 +60,76 @@ const MapView: React.FC<MapViewProps> = ({
           eventHandlers={{
             mousemove: (e) => {
               if (!onPointHover) return;
-              // Filter only [number, number] coordinates
-              const coords = (
-                getLineStringFeatures(route)[0].geometry
-                  .coordinates as Position[]
-              ).filter(
-                (c): c is [number, number] =>
-                  Array.isArray(c) &&
-                  c.length >= 2 &&
-                  typeof c[0] === "number" &&
-                  typeof c[1] === "number"
-              );
-              if (coords.length === 0) return;
-              const idx = findClosestPointIndex(
-                coords,
+              const hoveredLatLng: [number, number] = [
                 e.latlng.lat,
-                e.latlng.lng
-              );
-              const [lng, lat] = coords[idx];
-              onPointHover(route.id, idx, [lat, lng]);
+                e.latlng.lng,
+              ];
+              const results: {
+                routeId: string;
+                pointIndices: number[];
+                latlng: [number, number];
+              }[] = [];
+              for (const r of routeVariants) {
+                const features = r.geojson.features.filter(
+                  (f): f is Feature<LineString> =>
+                    f.geometry.type === "LineString"
+                );
+                for (const feature of features) {
+                  const coords = (
+                    feature.geometry.coordinates as Position[]
+                  ).filter(
+                    (c): c is [number, number] =>
+                      Array.isArray(c) &&
+                      c.length >= 2 &&
+                      typeof c[0] === "number" &&
+                      typeof c[1] === "number"
+                  );
+                  // 1. Find all indices within 100 meters
+                  const pointsWithDist = coords
+                    .map(([lng, lat], idx) => ({
+                      idx,
+                      dist: Math.sqrt(
+                        Math.pow(lat - hoveredLatLng[0], 2) +
+                          Math.pow(lng - hoveredLatLng[1], 2)
+                      ),
+                      coord: [lng, lat] as [number, number],
+                    }))
+                    .filter(({ dist }) => dist < 0.001); // ~100m
+                  // 2. Order by distance
+                  pointsWithDist.sort((a, b) => a.dist - b.dist);
+                  // 3. Deduplicate: only keep points whose cumulative distances from start differ by at least 1km
+                  const cumDists = getCumulativeDistances(coords);
+                  const deduped: typeof pointsWithDist = [];
+                  for (const pt of pointsWithDist) {
+                    if (
+                      deduped.every(
+                        (d) => Math.abs(cumDists[pt.idx] - cumDists[d.idx]) > 1
+                      )
+                    ) {
+                      deduped.push(pt);
+                    }
+                    if (deduped.length === 2) break; // Only keep up to 2
+                  }
+                  // 4. Only show the 1 or 2 closest points per route
+                  if (deduped.length > 0) {
+                    results.push({
+                      routeId: r.id,
+                      pointIndices: deduped.map((d) => d.idx),
+                      latlng: hoveredLatLng,
+                    });
+                  }
+                }
+              }
+              if (results.length > 0) {
+                onPointHover(results);
+              }
             },
           }}
         />
       ))}
-      {popupInfo && (
-        <Popup position={popupInfo.latlng}>
-          <RoutePopup
-            routeName={popupInfo.routeName}
-            distanceKm={popupInfo.distanceKm}
-            timeRange={popupInfo.timeRange}
-          />
+      {popupInfo && popupInfo.length > 0 && (
+        <Popup position={popupInfo[0].latlng}>
+          <RoutePopup routes={popupInfo} />
         </Popup>
       )}
     </MapContainer>

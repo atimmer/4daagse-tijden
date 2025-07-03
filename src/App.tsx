@@ -72,11 +72,10 @@ const App: React.FC = () => {
     Record<string, string[]>
   >({});
   const [startTimes, setStartTimes] = useState<Record<string, string>>({});
-  const [hovered, setHovered] = useState<{
-    id: string;
-    pointIndex: number;
-    latlng: [number, number];
-  } | null>(null);
+  const [hovered, setHovered] = useState<
+    | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
+    | null
+  >(null);
 
   useEffect(() => {
     Promise.all(
@@ -187,36 +186,48 @@ const App: React.FC = () => {
 
   // Passage time popup info
   function getPopupInfo() {
-    if (!hovered) return null;
-    const variant = routeVariants.find((v) => v.id === hovered.id);
-    if (!variant) return null;
-    // Find the first LineString in the variant
-    const feature = variant.geojson.features.find(
-      (f) => f.geometry.type === "LineString"
-    ) as Feature<LineString> | undefined;
-    if (!feature) return null;
-    // Filter only [number, number] coordinates
-    const coords = (feature.geometry.coordinates as Position[]).filter(
-      (c): c is [number, number] =>
-        Array.isArray(c) &&
-        c.length >= 2 &&
-        typeof c[0] === "number" &&
-        typeof c[1] === "number"
-    );
-    const dists = getCumulativeDistances(coords);
-    const distanceKm = dists[hovered.pointIndex] || 0;
-    const startTime = variant.startTime;
-    // Show range for min/max speed
-    const minSpeed = Math.min(...SPEED_OPTIONS);
-    const maxSpeed = Math.max(...SPEED_OPTIONS);
-    const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
-    const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
-    return {
-      routeName: variant.label,
-      distanceKm,
-      timeRange: { earliest, latest },
-      latlng: hovered.latlng,
-    };
+    if (!hovered || hovered.length === 0) return null;
+    return hovered
+      .map(({ routeId, pointIndices, latlng }) => {
+        const variant = routeVariants.find((v) => v.id === routeId);
+        if (!variant) return null;
+        const feature = variant.geojson.features.find(
+          (f) => f.geometry.type === "LineString"
+        ) as Feature<LineString> | undefined;
+        if (!feature) return null;
+        const coords = (feature.geometry.coordinates as Position[]).filter(
+          (c): c is [number, number] =>
+            Array.isArray(c) &&
+            c.length >= 2 &&
+            typeof c[0] === "number" &&
+            typeof c[1] === "number"
+        );
+        const dists = getCumulativeDistances(coords);
+        // If two indices, label as heen/terug
+        return pointIndices.map((pointIndex, i) => {
+          const distanceKm = dists[pointIndex] || 0;
+          const startTime = variant.startTime;
+          const minSpeed = Math.min(...SPEED_OPTIONS);
+          const maxSpeed = Math.max(...SPEED_OPTIONS);
+          const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
+          const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
+          return {
+            routeName: variant.label,
+            color: variant.color,
+            distanceKm,
+            timeRange: { earliest, latest },
+            latlng,
+            direction:
+              pointIndices.length > 1
+                ? i === 0
+                  ? "Heenreis"
+                  : "Terugreis"
+                : undefined,
+          };
+        });
+      })
+      .flat()
+      .filter(Boolean);
   }
 
   const popupInfo = getPopupInfo();
@@ -243,9 +254,7 @@ const App: React.FC = () => {
       />
       <MapView
         routeVariants={visibleVariants}
-        onPointHover={(id, pointIndex, latlng) =>
-          setHovered({ id, pointIndex, latlng })
-        }
+        onPointHover={(hovered) => setHovered(hovered)}
         popupInfo={popupInfo}
       />
     </div>
