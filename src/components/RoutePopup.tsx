@@ -1,5 +1,13 @@
 import React from "react";
-import type { RoutePopupInfo } from "./MapView";
+
+interface RoutePopupInfo {
+  routeName: string;
+  color: string;
+  distanceKm: number;
+  timeRange: { earliest: string; latest: string };
+  latlng: [number, number];
+  direction?: string;
+}
 
 export interface RoutePopupProps {
   routes: RoutePopupInfo[];
