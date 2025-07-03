@@ -5,6 +5,7 @@ import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import "./App.css";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
+import type { RoutePopupInfo } from "./components/MapView";
 
 const ROUTE_FILES = [
   {
@@ -217,17 +218,14 @@ const App: React.FC = () => {
             distanceKm,
             timeRange: { earliest, latest },
             latlng,
-            direction:
-              pointIndices.length > 1
-                ? i === 0
-                  ? "Heenreis"
-                  : "Terugreis"
-                : undefined,
+            ...(pointIndices.length > 1
+              ? { direction: i === 0 ? "Heenreis" : "Terugreis" }
+              : {}),
           };
         });
       })
       .flat()
-      .filter(Boolean);
+      .filter((item): item is RoutePopupInfo => item !== null);
   }
 
   const popupInfo = getPopupInfo();
