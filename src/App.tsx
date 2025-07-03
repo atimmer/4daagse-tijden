@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import RouteSelector from "./components/RouteSelector";
 import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
-import "./App.css";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 import SpeedRangeSelector from "./components/SpeedSelector";
 import RoutePopup from "./components/RoutePopup";
@@ -357,7 +356,7 @@ const App: React.FC = () => {
         </button>
       )}
       {/* Map always full screen, but sidebar overlays it */}
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-10 ">
         <MapView
           routeVariants={visibleVariants}
           onPointHover={(hovered) => {
