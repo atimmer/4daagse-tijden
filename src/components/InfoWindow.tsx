@@ -39,20 +39,42 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
   // Summary for advertising drawer when a point is selected
   let summary = infoText;
   if (popupInfo && popupInfo.length > 0) {
-    // Find min and max time across all routes
-    const times = popupInfo.map((r) => [
-      r.timeRange.earliest,
-      r.timeRange.latest,
-    ]);
-    // Flatten and sort times
-    const allTimes = times.flat();
-    // Sort as strings (HH:mm)
-    const sorted = allTimes.slice().sort();
-    const minTime = sorted[0];
-    const maxTime = sorted[sorted.length - 1];
+    // Group by direction
+    const heen = popupInfo.filter((r) => r.direction === "Heenreis");
+    const terug = popupInfo.filter((r) => r.direction === "Terugreis");
+    const overige = popupInfo.filter((r) => !r.direction);
+
+    // Helper to get min/max time for a group
+    const getTimeRange = (group: RoutePopupInfo[]) => {
+      if (group.length === 0) return null;
+      const times = group
+        .map((r) => [r.timeRange.earliest, r.timeRange.latest])
+        .flat();
+      const sorted = times.slice().sort();
+      return { min: sorted[0], max: sorted[sorted.length - 1] };
+    };
+    const heenTime = getTimeRange(heen);
+    const terugTime = getTimeRange(terug);
+    const overigeTime = getTimeRange(overige);
+
     summary = (
       <div className="p-3 text-sm text-gray-700">
-        <b>Doorkomst</b>: {minTime} – {maxTime}
+        {heenTime && (
+          <div>
+            <b>Doorkomst Heen</b>: {heenTime.min} – {heenTime.max}
+          </div>
+        )}
+        {terugTime && (
+          <div>
+            <b>Doorkomst Terug</b>: {terugTime.min} – {terugTime.max}
+          </div>
+        )}
+        {/* If neither heen nor terug, show overige as fallback */}
+        {!heenTime && !terugTime && overigeTime && (
+          <div>
+            <b>Doorkomst</b>: {overigeTime.min} – {overigeTime.max}
+          </div>
+        )}
         <div className="text-xs text-gray-400 mt-2">Tik voor meer info</div>
       </div>
     );
