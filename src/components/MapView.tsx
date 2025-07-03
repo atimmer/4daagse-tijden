@@ -6,10 +6,11 @@ import {
   CircleMarker,
   useMapEvent,
 } from "react-leaflet";
-import type { FeatureCollection, LineString, Feature, Position } from "geojson";
+import type { FeatureCollection } from "geojson";
 import type { LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { getCumulativeDistances, getRelevantRoutePoints } from "../lib/utils";
+import { getRelevantRoutePoints } from "../lib/utils";
+import PieMarker from "./PieMarker";
 
 export interface RouteVariant {
   id: string;
@@ -30,6 +31,9 @@ export interface MapViewProps {
       | null
   ) => void;
   hoveredPoint?: [number, number] | null;
+  hoveredRoutes?:
+    | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
+    | null;
 }
 
 const center: [number, number] = [51.842, 5.852]; // Nijmegen area
@@ -64,7 +68,18 @@ const MapView: React.FC<MapViewProps> = ({
   routeVariants,
   onPointHover,
   hoveredPoint,
+  hoveredRoutes,
 }) => {
+  // Get the colors for the hovered routes
+  let hoveredColors: string[] = [];
+  if (hoveredRoutes && hoveredRoutes.length > 0) {
+    hoveredColors = hoveredRoutes
+      .map((r) => {
+        const route = routeVariants.find((v) => v.id === r.routeId);
+        return route ? route.color : undefined;
+      })
+      .filter(Boolean) as string[];
+  }
   return (
     <MapContainer
       center={center}
@@ -86,12 +101,20 @@ const MapView: React.FC<MapViewProps> = ({
           style={() => ({ color: route.color, weight: 4 })}
         />
       ))}
-      {hoveredPoint && (
+      {/* Custom marker logic */}
+      {hoveredPoint && hoveredColors.length === 1 && (
         <CircleMarker
           center={hoveredPoint}
           radius={10}
-          pathOptions={{ color: "#2563eb", fillColor: "#fff", fillOpacity: 1 }}
+          pathOptions={{
+            color: hoveredColors[0],
+            fillColor: "#fff",
+            fillOpacity: 1,
+          }}
         />
+      )}
+      {hoveredPoint && hoveredColors.length > 1 && (
+        <PieMarker center={hoveredPoint} colors={hoveredColors} />
       )}
     </MapContainer>
   );

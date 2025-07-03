@@ -368,6 +368,7 @@ const App: React.FC = () => {
             }
           }}
           hoveredPoint={hoveredPoint}
+          hoveredRoutes={hovered}
         />
       </div>
     </div>
