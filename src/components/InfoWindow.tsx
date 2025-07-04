@@ -2,6 +2,7 @@ import React from "react";
 import RoutePopup from "./RoutePopup";
 import { Drawer, DrawerContent, DrawerClose } from "./ui/drawer";
 import { Button } from "./ui/button";
+import { useBreakpoints } from "@/lib/layout-hooks";
 
 interface RoutePopupInfo {
   routeName: string;
@@ -25,6 +26,8 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
   drawerOpen,
   setDrawerOpen,
 }) => {
+  const { smallerThan } = useBreakpoints();
+
   // Advertising drawer content
   const infoText = (
     <div className="p-3 text-sm text-gray-700">
@@ -106,7 +109,16 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
             <div className="p-4 max-h-[70vh] overflow-y-auto">
               <div className="font-semibold mb-4 sr-only">Doorkomst info</div>
               {popupInfo && popupInfo.length > 0 ? (
-                <RoutePopup routes={popupInfo} />
+                <>
+                  <RoutePopup routes={popupInfo} />
+
+                  {smallerThan.xl && (
+                    <p className="mt-4 text-sm">
+                      De gemiddelde snelheid en starttijden kan je aanpassen in
+                      de instellingen.
+                    </p>
+                  )}
+                </>
               ) : (
                 infoText
               )}
@@ -130,6 +142,12 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
         <div className="p-2">
           <div className="font-semibold mb-2">Doorkomst</div>
           <RoutePopup routes={popupInfo} />
+          {smallerThan.xl && (
+            <p className="mt-4 text-sm">
+              De gemiddelde snelheid en starttijden kan je aanpassen met het
+              tandwiel icoon.
+            </p>
+          )}
         </div>
       ) : (
         infoText
