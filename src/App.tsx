@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import RouteSelector, { DaySelector } from "./components/RouteSelector";
 import MapView from "./components/MapView";
 import type { Feature, LineString, FeatureCollection, Position } from "geojson";
 import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
-import SpeedRangeSelector from "./components/SpeedSelector";
 import InfoWindow from "./components/InfoWindow";
 import { useIsMobile } from "./lib/layout-hooks";
 import { getDefaultDay } from "./lib/date";
+import Sidebar from "./components/Sidebar";
+import { DaySelector } from "./components/RouteSelector";
 
 const ROUTE_FILES = [
   {
@@ -90,7 +90,6 @@ const App: React.FC = () => {
   const [hoveredPoint, setHoveredPoint] = useState<[number, number] | null>(
     null
   );
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -259,39 +258,6 @@ const App: React.FC = () => {
 
   const popupInfo = getPopupInfo();
 
-  // Sidebar/Overlay content
-  const sidebarContent = (
-    <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full max-w-md">
-      <button
-        className="md:hidden self-end mb-2 text-lg"
-        onClick={() => setSidebarOpen(false)}
-        aria-label="Sluit menu"
-        style={{ display: isMobile ? "block" : "none" }}
-      >
-        ✕
-      </button>
-      <h1 className="text-2xl font-bold mb-4">
-        Nijmeegse 4Daagse Passage Tijd Schatter
-      </h1>
-      <RouteSelector
-        distancesByDay={distancesByDay}
-        selectedDay={selectedDay}
-        selectedDistances={selectedDistances}
-        onDistanceToggle={handleDistanceToggle}
-        startTimes={startTimes}
-        onStartTimeChange={handleStartTimeChange}
-      />
-      <SpeedRangeSelector
-        minSpeed={minSpeed}
-        maxSpeed={maxSpeed}
-        onChange={(min, max) => {
-          setMinSpeed(min);
-          setMaxSpeed(max);
-        }}
-      />
-    </div>
-  );
-
   // Floating DaySelector bar
   const daySelectorBar = (
     <div
@@ -314,48 +280,19 @@ const App: React.FC = () => {
   return (
     <div className="touch-manipulation w-screen h-screen overflow-hidden relative">
       {daySelectorBar}
-      {/* Sidebar for desktop, overlay for mobile */}
-      <div
-        className={
-          isMobile
-            ? `fixed inset-0 z-30 bg-black/40 transition-opacity ${
-                sidebarOpen
-                  ? "opacity-100 pointer-events-auto"
-                  : "opacity-0 pointer-events-none"
-              }`
-            : "fixed left-0 top-0 bottom-0 z-20 w-full max-w-md bg-white shadow-lg"
-        }
-        style={
-          isMobile
-            ? { display: sidebarOpen ? "block" : "none" }
-            : { width: "350px" }
-        }
-        onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-      >
-        <div
-          className={
-            isMobile
-              ? `absolute left-0 top-0 bottom-0 w-80 max-w-full bg-white shadow-lg transition-transform ${
-                  sidebarOpen ? "translate-x-0" : "-translate-x-full"
-                }`
-              : "h-full"
-          }
-          style={isMobile ? { height: "100vh" } : {}}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {sidebarContent}
-        </div>
-      </div>
-      {/* Toggle button for mobile */}
-      {isMobile && !sidebarOpen && (
-        <button
-          className="fixed top-4 left-4 z-40 bg-white rounded shadow p-2"
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Open menu"
-        >
-          ☰
-        </button>
-      )}
+      <Sidebar
+        isMobile={isMobile}
+        selectedDay={selectedDay}
+        distancesByDay={distancesByDay}
+        selectedDistances={selectedDistances}
+        onDistanceToggle={handleDistanceToggle}
+        startTimes={startTimes}
+        onStartTimeChange={handleStartTimeChange}
+        minSpeed={minSpeed}
+        maxSpeed={maxSpeed}
+        setMinSpeed={setMinSpeed}
+        setMaxSpeed={setMaxSpeed}
+      />
       {/* Map always full screen, but sidebar overlays it */}
       <div className="absolute inset-0 z-10 ">
         <MapView

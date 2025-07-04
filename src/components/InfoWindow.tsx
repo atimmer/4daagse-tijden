@@ -1,6 +1,7 @@
 import React from "react";
 import RoutePopup from "./RoutePopup";
 import { Drawer, DrawerContent, DrawerClose } from "./ui/drawer";
+import { Button } from "./ui/button";
 
 interface RoutePopupInfo {
   routeName: string;
@@ -102,17 +103,15 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
           onOpenChange={setDrawerOpen}
         >
           <DrawerContent className="max-w-sm mx-auto w-full z-50">
-            <div className="p-2 max-h-[70vh] overflow-y-auto">
-              <div className="font-semibold mb-2">Doorkomst info</div>
+            <div className="p-4 max-h-[70vh] overflow-y-auto">
+              <div className="font-semibold mb-4 sr-only">Doorkomst info</div>
               {popupInfo && popupInfo.length > 0 ? (
                 <RoutePopup routes={popupInfo} />
               ) : (
                 infoText
               )}
               <DrawerClose asChild>
-                <button className="mt-4 w-full bg-gray-100 rounded p-2 text-sm text-gray-700">
-                  Sluiten
-                </button>
+                <Button className="mt-4">Sluiten</Button>
               </DrawerClose>
             </div>
           </DrawerContent>

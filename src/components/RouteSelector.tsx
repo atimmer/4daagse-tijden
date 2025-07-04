@@ -85,23 +85,28 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
     <div className="mb-4">
       <div className="flex flex-col gap-2">
         {distancesByDay[selectedDay]?.map((dist) => (
-          <Label key={dist.key} className="flex items-center gap-3">
-            <Checkbox
-              checked={selectedDistances.includes(dist.key)}
-              onCheckedChange={() => onDistanceToggle(dist.key)}
-              id={dist.key}
-            />
-            <span
-              className="inline-block w-3 h-3 rounded-full"
-              style={{ backgroundColor: dist.color }}
-            ></span>
-            <span className="select-none">{dist.label}</span>
+          <Label
+            key={dist.key}
+            className="flex items-center gap-3 justify-between w-full"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <Checkbox
+                checked={selectedDistances.includes(dist.key)}
+                onCheckedChange={() => onDistanceToggle(dist.key)}
+                id={dist.key}
+              />
+              <span
+                className="inline-block w-3 h-3 rounded-full"
+                style={{ backgroundColor: dist.color }}
+              ></span>
+              <span className="select-none truncate">{dist.label}</span>
+            </div>
             {selectedDistances.includes(dist.key) && (
               <Input
                 type="time"
                 value={startTimes[dist.key] || "07:00"}
                 onChange={(e) => onStartTimeChange(dist.key, e.target.value)}
-                className="w-24 ml-2"
+                className="w-24 ml-2 text-right"
               />
             )}
           </Label>

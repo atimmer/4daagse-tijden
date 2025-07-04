@@ -56,7 +56,7 @@ const RoutePopup: React.FC<RoutePopupProps> = ({ routes }) => {
     );
 
   return (
-    <div className="p-2 text-sm min-w-[220px]">
+    <div className="text-sm min-w-[220px]">
       {renderGroup(heenreis, "Heen")}
       {renderGroup(terugreis, "Terug")}
       {renderGroup(overige)}
