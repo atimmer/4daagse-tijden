@@ -311,7 +311,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="w-screen h-screen overflow-hidden relative">
+    <div className="touch-manipulation w-screen h-screen overflow-hidden relative">
       {daySelectorBar}
       {/* Sidebar for desktop, overlay for mobile */}
       <div
