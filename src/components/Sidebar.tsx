@@ -5,13 +5,12 @@ import { Drawer, DrawerContent, DrawerTrigger, DrawerClose } from "./ui/drawer";
 import { Button, buttonVariants } from "./ui/button";
 import { SettingsIcon, HandHeart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useBreakpoints, useIsXl } from "@/lib/layout-hooks";
+import { useBreakpoints } from "@/lib/layout-hooks";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
   SheetTrigger,
   SheetClose,
 } from "./ui/sheet";
