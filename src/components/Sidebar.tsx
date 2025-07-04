@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetDescription,
   SheetTrigger,
+  SheetClose,
 } from "./ui/sheet";
 
 interface SidebarProps {
@@ -111,6 +112,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           <DrawerClose asChild>
             <Button className="mt-4">Sluiten</Button>
           </DrawerClose>
+        </>
+      )}
+      {largerThan.md && smallerThan.xl && (
+        <>
+          <SheetClose asChild>
+            <Button className="mt-8">Sluiten</Button>
+          </SheetClose>
         </>
       )}
       {largerThan.xl && donationContent}
