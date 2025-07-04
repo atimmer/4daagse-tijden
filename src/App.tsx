@@ -187,7 +187,7 @@ const App: React.FC = () => {
     selectedDistancesByDay[selectedDay] &&
     selectedDistancesByDay[selectedDay].length > 0
       ? selectedDistancesByDay[selectedDay]
-      : distancesByDay[selectedDay]?.map((d) => d.key) || [];
+      : [];
 
   // Toggle distance for selected day
   const handleDistanceToggle = (distanceKey: string) => {
