@@ -5,6 +5,7 @@ import {
   GeoJSON,
   CircleMarker,
   useMapEvent,
+  Pane,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { getRelevantRoutePoints } from "../lib/utils";
@@ -102,15 +103,17 @@ const MapView: React.FC<MapViewProps> = ({
       ))}
       {/* Custom marker logic */}
       {hoveredPoint && (
-        <CircleMarker
-          center={hoveredPoint}
-          radius={10}
-          pathOptions={{
-            color: hoveredColors.length === 1 ? hoveredColors[0] : "#000",
-            fillColor: "#fff",
-            fillOpacity: 1,
-          }}
-        />
+        <Pane name="marker-top" style={{ zIndex: 650 }}>
+          <CircleMarker
+            center={hoveredPoint}
+            radius={10}
+            pathOptions={{
+              color: hoveredColors.length === 1 ? hoveredColors[0] : "#000",
+              fillColor: "#fff",
+              fillOpacity: 1,
+            }}
+          />
+        </Pane>
       )}
     </MapContainer>
   );
