@@ -125,14 +125,10 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
     "fixed z-50 bg-white shadow-lg rounded-lg border border-gray-200 bottom-8 xl:bottom-auto xl:top-4 right-4 max-w-xs w-full min-w-[220px]";
 
   return (
-    <div
-      className={baseClass}
-      aria-label="Doorkomst info"
-      style={{ userSelect: "none" }}
-    >
+    <div className={baseClass} style={{ userSelect: "none" }}>
       {popupInfo && popupInfo.length > 0 ? (
         <div className="p-2">
-          <div className="font-semibold mb-2">Doorkomst info</div>
+          <div className="font-semibold mb-2">Doorkomst</div>
           <RoutePopup routes={popupInfo} />
         </div>
       ) : (
