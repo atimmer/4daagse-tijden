@@ -56,13 +56,14 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
           label="Minimum snelheid"
           value={minSpeedValue}
           onChange={(e) => {
-            setMinSpeedValue(e.target.value);
-            let numberValue = parseFloat(e.target.value.replace(",", "."));
+            const value = e.target.value;
+            setMinSpeedValue(value);
+            let numberValue = parseFloat(value.replace(",", "."));
             if (Number.isNaN(numberValue)) {
               numberValue = 0;
             }
             const min = Math.max(0, Math.min(11, numberValue));
-            if (min > maxSpeed) {
+            if (min > maxSpeed && value !== "") {
               onChange(min, min);
             } else {
               onChange(min, maxSpeed);
@@ -80,13 +81,14 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
           label="Maximum snelheid"
           value={maxSpeedValue}
           onChange={(e) => {
-            setMaxSpeedValue(e.target.value);
-            let numberValue = parseFloat(e.target.value.replace(",", "."));
+            const value = e.target.value;
+            setMaxSpeedValue(value);
+            let numberValue = parseFloat(value.replace(",", "."));
             if (Number.isNaN(numberValue)) {
               numberValue = 0;
             }
             const max = Math.max(0, Math.min(11, numberValue));
-            if (minSpeed > max) {
+            if (minSpeed > max && value !== "") {
               onChange(max, max);
             } else {
               onChange(minSpeed, max);
