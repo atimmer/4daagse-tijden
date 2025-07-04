@@ -76,8 +76,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full max-w-md relative">
-      <h1 className="text-2xl font-bold mb-4">
-        Nijmeegse 4Daagse Passage Tijd Schatter
+      <h1 className="text-2xl font-bold mb-4 hidden md:block">
+        4Daagse Doorkomst Tijden
       </h1>
       <RouteSelector
         distancesByDay={distancesByDay}
