@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [donationDrawerOpen, setDonationDrawerOpen] = useState(false);
-  const [isDonationShown, setIsDonationShown] = useState(false);
+  const [isDonationShown, setIsDonationShown] = useState(true);
 
   const { smallerThan, largerThan } = useBreakpoints();
 
@@ -167,6 +167,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </DrawerContent>
         </Drawer>
+        {donationDrawer}
       </>
     );
   }
