@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -13,40 +13,62 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
   maxSpeed,
   onChange,
 }) => {
+  const [minSpeedValue, setMinSpeedValue] = useState(String(minSpeed));
+  const [maxSpeedValue, setMaxSpeedValue] = useState(String(maxSpeed));
+
   return (
-    <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="min-speed">Langzaamste snelheid</Label>
-        <Input
-          id="min-speed"
-          type="number"
-          min={0}
-          max={11}
-          step={0.1}
-          value={minSpeed}
-          onChange={(e) => {
-            const min = Math.max(0, Math.min(11, Number(e.target.value)));
-            if (min > maxSpeed) {
-              onChange(min, min);
-            } else {
-              onChange(min, maxSpeed);
-            }
-          }}
-          className="w-28"
-        />
-        <span className="text-xs text-muted-foreground">km/u</span>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="max-speed">Snelste snelheid</Label>
+    <>
+      <div className="grid grid-flow-col grid-cols-[auto_1fr_auto] items-start sm:items-center gap-2 justify-center">
+        <Label htmlFor="min-speed">Minimum snelheid</Label>
+        <div className="flex justify-center">
+          <Input
+            id="min-speed"
+            type="text"
+            min={0}
+            max={11}
+            step={0.1}
+            value={minSpeedValue}
+            inputMode="decimal"
+            onChange={(e) => {
+              setMinSpeedValue(e.target.value);
+
+              let numberValue = parseFloat(e.target.value.replace(",", "."));
+              if (Number.isNaN(numberValue)) {
+                numberValue = 0;
+              }
+
+              const min = Math.max(0, Math.min(11, numberValue));
+              if (min > maxSpeed) {
+                onChange(min, min);
+              } else {
+                onChange(min, maxSpeed);
+              }
+            }}
+            className="w-28"
+          />
+        </div>
+        <span className="text-xs text-muted-foreground text-right mr-4">
+          km/u
+        </span>
+        <div className="mx-auto row-span-3">-</div>
+        <Label htmlFor="max-speed">Maximum snelheid</Label>
         <Input
           id="max-speed"
-          type="number"
+          type="text"
           min={0}
           max={11}
           step={0.1}
-          value={maxSpeed}
+          value={maxSpeedValue}
+          inputMode="decimal"
           onChange={(e) => {
-            const max = Math.max(0, Math.min(11, Number(e.target.value)));
+            setMaxSpeedValue(e.target.value);
+
+            let numberValue = parseFloat(e.target.value.replace(",", "."));
+            if (Number.isNaN(numberValue)) {
+              numberValue = 0;
+            }
+
+            const max = Math.max(0, Math.min(11, numberValue));
             if (minSpeed > max) {
               onChange(max, max);
             } else {
@@ -55,9 +77,16 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
           }}
           className="w-28"
         />
-        <span className="text-xs text-muted-foreground">km/u</span>
+        <span className="text-xs text-muted-foreground text-right mr-4">
+          km/u
+        </span>
       </div>
-    </div>
+      <p className="text-sm text-muted-foreground mt-4">
+        Doorkomst tijden worden berekend met een gemiddelde snelheid tussen de{" "}
+        {String(minSpeed).replace(".", ",")} km/h en{" "}
+        {String(maxSpeed).replace(".", ",")} km/h.
+      </p>
+    </>
   );
 };
 
