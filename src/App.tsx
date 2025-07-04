@@ -6,6 +6,7 @@ import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
 import SpeedRangeSelector from "./components/SpeedSelector";
 import InfoWindow from "./components/InfoWindow";
 import { useIsMobile } from "./lib/layout-hooks";
+import { getDefaultDay } from "./lib/date";
 
 const ROUTE_FILES = [
   {
@@ -77,7 +78,7 @@ const App: React.FC = () => {
   const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
   const [minSpeed, setMinSpeed] = useState<number>(4);
   const [maxSpeed, setMaxSpeed] = useState<number>(6);
-  const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
+  const [selectedDay, setSelectedDay] = useState<string>(getDefaultDay());
   const [selectedDistancesByDay, setSelectedDistancesByDay] = useState<
     Record<string, string[]>
   >({});
