@@ -122,7 +122,7 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
 
   // Desktop: fixed window
   const baseClass =
-    "fixed z-50 bg-white shadow-lg rounded-lg border border-gray-200 top-4 right-4 max-w-xs w-full min-w-[220px]";
+    "fixed z-50 bg-white shadow-lg rounded-lg border border-gray-200 bottom-8 xl:bottom-auto xl:top-4 right-4 max-w-xs w-full min-w-[220px]";
 
   return (
     <div

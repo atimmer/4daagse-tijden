@@ -5,6 +5,15 @@ import { Drawer, DrawerContent, DrawerTrigger, DrawerClose } from "./ui/drawer";
 import { Button, buttonVariants } from "./ui/button";
 import { SettingsIcon, HandHeart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBreakpoints, useIsXl } from "@/lib/layout-hooks";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "./ui/sheet";
 
 interface SidebarProps {
   isMobile: boolean;
@@ -39,6 +48,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [donationDrawerOpen, setDonationDrawerOpen] = useState(false);
   const [isDonationShown, setIsDonationShown] = useState(false);
+
+  const { smallerThan, largerThan } = useBreakpoints();
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -75,9 +86,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const sidebarContent = (
-    <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full max-w-md relative">
-      <h1 className="text-2xl font-bold mb-4 hidden md:block">
-        4Daagse Doorkomst Tijden
+    <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full relative">
+      <h1 className="text-2xl font-bold mb-4 hidden xl:block">
+        4Daagse doorkomst tijden
       </h1>
       <RouteSelector
         distancesByDay={distancesByDay}
@@ -95,52 +106,57 @@ const Sidebar: React.FC<SidebarProps> = ({
           setMaxSpeed(max);
         }}
       />
-      {isMobile && (
+      {smallerThan.md && (
         <>
           <DrawerClose asChild>
             <Button className="mt-4">Sluiten</Button>
           </DrawerClose>
         </>
       )}
-      {!isMobile && donationContent}
+      {largerThan.xl && donationContent}
     </div>
   );
 
-  if (isMobile) {
+  const donationDrawer = (
+    <Drawer open={donationDrawerOpen} onOpenChange={setDonationDrawerOpen}>
+      <DrawerTrigger asChild>
+        <button
+          className={cn(
+            "fixed top-28 md:top-16 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center transition-opacity duration-500",
+            isDonationShown ? "opacity-100" : "opacity-0"
+          )}
+          aria-label="Instellingen openen"
+          style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
+        >
+          <HandHeart className="size-6" />
+        </button>
+      </DrawerTrigger>
+      <DrawerContent className="max-w-full">
+        <div className="flex flex-col h-full overflow-y-auto p-4">
+          {donationContent}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+
+  const settingsButton = (
+    <button
+      className="fixed top-16 md:top-4 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center"
+      aria-label="Instellingen openen"
+      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
+    >
+      <SettingsIcon className="size-6" />
+    </button>
+  );
+
+  if (smallerThan.md) {
     return (
       <>
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <DrawerTrigger asChild>
-            <button
-              className="fixed top-16 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center"
-              aria-label="Instellingen openen"
-              style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
-            >
-              <SettingsIcon className="size-6" />
-            </button>
-          </DrawerTrigger>
+          <DrawerTrigger asChild>{settingsButton}</DrawerTrigger>
           <DrawerContent className="max-w-full">
             <div className="flex flex-col h-full overflow-y-auto">
               {sidebarContent}
-            </div>
-          </DrawerContent>
-        </Drawer>
-        <Drawer open={donationDrawerOpen} onOpenChange={setDonationDrawerOpen}>
-          <DrawerTrigger asChild>
-            <button
-              className={cn(
-                "fixed top-28 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center transition-opacity duration-500",
-                isDonationShown ? "opacity-100" : "opacity-0"
-              )}
-              aria-label="Instellingen openen"
-              style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
-            >
-              <HandHeart className="size-6" />
-            </button>
-          </DrawerTrigger>
-          <DrawerContent className="max-w-full">
-            <div className="flex flex-col h-full overflow-y-auto p-4">
-              {donationContent}
             </div>
           </DrawerContent>
         </Drawer>
@@ -148,9 +164,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   }
 
+  if (smallerThan.xl) {
+    return (
+      <>
+        {donationDrawer}
+        <Sheet>
+          <SheetTrigger>{settingsButton}</SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Instellingen</SheetTitle>
+            </SheetHeader>
+            <div className="flex flex-col h-full overflow-y-auto">
+              {sidebarContent}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
   // Desktop sidebar
   return (
-    <div className="fixed left-0 top-0 bottom-0 z-20 w-full max-w-md bg-white shadow-lg flex flex-col">
+    <div className="fixed left-0 top-0 bottom-0 z-20 w-full md:w-[400px] max-w-md bg-white shadow-lg flex flex-col">
       {sidebarContent}
     </div>
   );
