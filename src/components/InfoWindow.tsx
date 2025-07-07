@@ -3,6 +3,7 @@ import RoutePopup from "./RoutePopup";
 import { Drawer, DrawerContent, DrawerClose } from "./ui/drawer";
 import { Button } from "./ui/button";
 import { useBreakpoints } from "@/lib/layout-hooks";
+import { ChevronDownIcon } from "lucide-react";
 
 interface RoutePopupInfo {
   routeName: string;
@@ -79,7 +80,15 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
             <b>Doorkomst</b>: {overigeTime.min} – {overigeTime.max}
           </div>
         )}
-        <div className="text-xs text-gray-400 mt-2">Tik voor meer info</div>
+        <button className="text-blue-600 w-full leading-8 font-bold mt-4 flex justify-center items-center gap-1">
+          Bekijk per afstand
+          <ChevronDownIcon
+            className={`transition-transform duration-300 ${
+              drawerOpen ? "rotate-180" : "rotate-0"
+            } ml-1 size-4`}
+            aria-hidden="true"
+          />
+        </button>
       </div>
     );
   }
