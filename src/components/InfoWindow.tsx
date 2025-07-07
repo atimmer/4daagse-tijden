@@ -31,7 +31,7 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
   // Advertising drawer content
   const infoText = (
     <div className="p-3 text-sm text-gray-700">
-      <b>Doorkomst info</b>
+      <b>Verwachte doorkomst</b>
       <div className="mt-1">
         Selecteer een punt op de routekaart om de verwachte doorkomsttijden te
         zien. Beweeg met de muis over de route (desktop) of tik op de route
