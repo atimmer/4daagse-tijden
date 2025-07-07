@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-y-auto p-4 bg-white shadow-lg w-full relative">
       <h1 className="text-2xl font-bold mb-4 hidden xl:block">
-        4Daagse doorkomst tijden
+        4Daagse doorkomsttijden
       </h1>
       <RouteSelector
         distancesByDay={distancesByDay}
