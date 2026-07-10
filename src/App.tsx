@@ -425,9 +425,9 @@ const App: React.FC = () => {
   const daySelectorBar = (
     <div
       className={
-        "flex flex-col items-center " +
+        "flex flex-col items-center gap-2 " +
         (isMobile
-          ? "fixed top-4 right-4 z-40 justify-center gap-2"
+          ? "fixed top-4 right-4 z-40 justify-center"
           : "fixed top-4 left-1/2 transform -translate-x-1/2 z-40 justify-center items-center")
       }
     >
