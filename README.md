@@ -38,8 +38,7 @@ pnpm build
   route point.
 - `src/lib/` contains date, geometry, and passage-time calculations.
 - `public/` contains route GeoJSON and application icons.
-- `docs/offline-support.md` records the decisions needed before changing route
-  fetching or adding a service worker.
+- `docs/offline-support.md` describes the app's transparent offline behavior.
 
 ## Route data
 
@@ -49,8 +48,9 @@ official day pages. The edition year, individual source maps, and snapshot date
 are recorded in `src/config/edition.ts`. Official event and route information is
 available from [4Daagse](https://www.4daagse.nl/de-4daagseweek/routes).
 
-Route fetching intentionally remains unchanged while the offline strategy is
-being designed. See [the offline-support draft](docs/offline-support.md).
+The app automatically caches its shell and the newest successfully downloaded
+route files for later use without connectivity. See
+[offline support](docs/offline-support.md).
 
 ## Deployment
 

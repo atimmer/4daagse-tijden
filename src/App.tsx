@@ -16,6 +16,7 @@ import {
   EVENT_DAYS,
   getDefaultStartTime,
 } from "./config/edition";
+import { fetchRouteData } from "./lib/route-data";
 
 const DISTANCE_COLORS: Record<string, string> = {
   "50km": "#dc2626", // Red
@@ -81,9 +82,7 @@ const App: React.FC = () => {
   useEffect(() => {
     Promise.all(
       EDITION.routes.map(async ({ day, file }) => {
-        const geojson: FeatureCollection = await fetch(file).then((res) =>
-          res.json()
-        );
+        const geojson = await fetchRouteData(file);
         const byDistance: Record<string, Feature<LineString>[]> = {};
         geojson.features.forEach((f) => {
           if (
@@ -116,7 +115,7 @@ const App: React.FC = () => {
             startTime,
           } as RouteVariant;
         });
-      })
+      }).map((route) => route.catch(() => []))
     ).then((allVariants) => {
       const flatVariants = allVariants.flat();
       setRouteVariants(flatVariants);
