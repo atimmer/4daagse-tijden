@@ -19,7 +19,6 @@ export default defineConfig({
         "favicon.ico",
         "site.webmanifest",
       ],
-      injectRegister: "script",
       manifest: false,
       registerType: "autoUpdate",
       workbox: {
