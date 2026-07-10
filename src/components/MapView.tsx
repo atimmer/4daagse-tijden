@@ -8,7 +8,14 @@ import {
   Pane,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { getRelevantRoutePoints } from "../lib/utils";
+import {
+  buildRouteSearchIndex,
+  getRelevantRoutePoints,
+  leafletLatLngToLngLat,
+  type LeafletLatLngTuple,
+  type RelevantRoutePoint,
+  type RouteSearchIndex,
+} from "../lib/utils";
 import type { FeatureCollection } from "geojson";
 import type { LeafletMouseEvent } from "leaflet";
 
@@ -25,18 +32,14 @@ export interface RouteVariant {
 
 export interface MapViewProps {
   routeVariants: RouteVariant[];
-  onPointHover?: (
-    hoveredRoutes:
-      | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
-      | null
-  ) => void;
-  hoveredPoint?: [number, number] | null;
+  onPointHover?: (hoveredRoutes: RelevantRoutePoint[] | null) => void;
+  hoveredPoint?: LeafletLatLngTuple | null;
   hoveredRoutes?:
-    | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
+    | Pick<RelevantRoutePoint, "routeId" | "pointIndices" | "latlng">[]
     | null;
 }
 
-const center: [number, number] = [51.842, 5.852]; // Nijmegen area
+const center: LeafletLatLngTuple = [51.842, 5.852]; // Nijmegen area
 
 const isTouchDevice = () => {
   if (typeof window === "undefined") return false;
@@ -48,19 +51,99 @@ const isTouchDevice = () => {
   );
 };
 
+function searchRoutesAreEqual(
+  previous: readonly RouteVariant[],
+  next: readonly RouteVariant[]
+): boolean {
+  return (
+    previous.length === next.length &&
+    previous.every(
+      (route, index) =>
+        route.id === next[index].id && route.geojson === next[index].geojson
+    )
+  );
+}
+
+function useRouteSearchIndex(routeVariants: RouteVariant[]): RouteSearchIndex {
+  const cached = React.useRef<{
+    routes: RouteVariant[];
+    index: RouteSearchIndex;
+  }>(null);
+
+  if (
+    !cached.current ||
+    !searchRoutesAreEqual(cached.current.routes, routeVariants)
+  ) {
+    cached.current = {
+      routes: routeVariants.slice(),
+      index: buildRouteSearchIndex(routeVariants),
+    };
+  }
+
+  return cached.current.index;
+}
+
 const MapEventHandler: React.FC<{
   routeVariants: RouteVariant[];
   onPointHover?: MapViewProps["onPointHover"];
 }> = ({ routeVariants, onPointHover }) => {
-  const eventType = isTouchDevice() ? "click" : "mousemove";
+  const touchDevice = isTouchDevice();
+  const eventType = touchDevice ? "click" : "mousemove";
+  const searchIndex = useRouteSearchIndex(routeVariants);
+  const animationFrame = React.useRef<number | null>(null);
+  const pendingLatLng = React.useRef<LeafletLatLngTuple | null>(null);
+  const onPointHoverRef = React.useRef(onPointHover);
+  onPointHoverRef.current = onPointHover;
+
+  const processPoint = React.useCallback(
+    (latlng: LeafletLatLngTuple) => {
+      const results = getRelevantRoutePoints(
+        leafletLatLngToLngLat(latlng),
+        searchIndex
+      );
+      onPointHoverRef.current?.(results.length > 0 ? results : null);
+    },
+    [searchIndex]
+  );
+
   useMapEvent(eventType, (e: LeafletMouseEvent) => {
     if (!onPointHover) return;
-    const hoveredLatLng: [number, number] = [e.latlng.lat, e.latlng.lng];
-    const results = getRelevantRoutePoints(hoveredLatLng, routeVariants);
-    if (results.length > 0) {
-      onPointHover(results);
+    const latlng: LeafletLatLngTuple = [e.latlng.lat, e.latlng.lng];
+
+    // Taps should feel immediate and retain their selection. Desktop pointer
+    // events are reduced to one query per rendered frame.
+    if (touchDevice) {
+      processPoint(latlng);
+      return;
     }
+
+    pendingLatLng.current = latlng;
+    if (animationFrame.current !== null) return;
+    animationFrame.current = requestAnimationFrame(() => {
+      animationFrame.current = null;
+      if (pendingLatLng.current) processPoint(pendingLatLng.current);
+    });
   });
+
+  useMapEvent("mouseout", () => {
+    if (touchDevice) return;
+    pendingLatLng.current = null;
+    if (animationFrame.current !== null) {
+      cancelAnimationFrame(animationFrame.current);
+      animationFrame.current = null;
+    }
+    onPointHoverRef.current?.(null);
+  });
+
+  React.useEffect(
+    () => () => {
+      if (animationFrame.current !== null) {
+        cancelAnimationFrame(animationFrame.current);
+      }
+    },
+    []
+  );
+
   return null;
 };
 

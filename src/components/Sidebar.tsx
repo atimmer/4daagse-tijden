@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import RouteSelector from "./RouteSelector";
 import SpeedRangeSelector from "./SpeedSelector";
-import { Drawer, DrawerContent, DrawerTrigger, DrawerClose } from "./ui/drawer";
-import { Button, buttonVariants } from "./ui/button";
-import { SettingsIcon, HandHeart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTrigger,
+  DrawerClose,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "./ui/drawer";
+import { Button } from "./ui/button";
+import { SettingsIcon } from "lucide-react";
 import { useBreakpoints } from "@/lib/layout-hooks";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -33,7 +41,6 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  isMobile,
   selectedDay,
   distancesByDay,
   selectedDistances,
@@ -46,43 +53,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   setMaxSpeed,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [donationDrawerOpen, setDonationDrawerOpen] = useState(false);
-  const [isDonationShown, setIsDonationShown] = useState(true);
 
   const { smallerThan, largerThan } = useBreakpoints();
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setIsDonationShown(true);
-    }, 12000);
-
-    return () => clearTimeout(timeout);
-  }, [setIsDonationShown]);
-
-  const donationContent = (
-    <div
-      className={cn(
-        "w-full bg-white pt-4 pb-2 flex-col-reverse md:flex-col items-center z-10 mt-auto  flex transition-opacity duration-500 gap-2",
-        isDonationShown ? "md:opacity-100" : "opacity-0"
-      )}
+  const attribution = (
+    <a
+      className="mt-auto pt-6 text-center text-sm text-gray-500 underline-offset-4 transition-colors hover:text-gray-900 hover:underline"
+      href="https://24letters.com"
+      target="_blank"
+      rel="noopener noreferrer"
     >
-      <a
-        className={buttonVariants({
-          className:
-            "w-full max-w-xs flex items-center justify-center gap-2 text-base font-semibold py-3 bg-yellow-400 hover:bg-yellow-300 text-black shadow-md rounded-lg",
-        })}
-        href="https://donate.stripe.com/7sY7sMcYC2RcdZwdl26sw00"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <HandHeart className="mr-2" />
-        Draag bij
-      </a>
-      <small className="text-sm text-gray-500">
-        Heb je iets aan de app gehad, {isMobile && <br />} overweeg een kleine
-        bijdrage
-      </small>
-    </div>
+      Made with love by Anton
+    </a>
   );
 
   const sidebarContent = (
@@ -120,35 +102,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           </SheetClose>
         </>
       )}
-      {largerThan.xl && donationContent}
+      {attribution}
     </div>
-  );
-
-  const donationDrawer = (
-    <Drawer open={donationDrawerOpen} onOpenChange={setDonationDrawerOpen}>
-      <DrawerTrigger asChild>
-        <button
-          className={cn(
-            "fixed top-28 md:top-16 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center transition-opacity duration-500",
-            isDonationShown ? "opacity-100" : "opacity-0"
-          )}
-          aria-label="Instellingen openen"
-          style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
-        >
-          <HandHeart className="size-6" />
-        </button>
-      </DrawerTrigger>
-      <DrawerContent className="max-w-full">
-        <div className="flex flex-col h-full overflow-y-auto p-4">
-          {donationContent}
-        </div>
-      </DrawerContent>
-    </Drawer>
   );
 
   const settingsButton = (
     <button
-      className="fixed top-16 md:top-4 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center"
+      type="button"
+      className="fixed top-24 md:top-4 right-4 z-40 bg-white rounded-full shadow p-2 flex items-center justify-center"
       aria-label="Instellingen openen"
       style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
     >
@@ -159,35 +120,40 @@ const Sidebar: React.FC<SidebarProps> = ({
   if (smallerThan.md) {
     return (
       <>
-        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <Drawer autoFocus open={drawerOpen} onOpenChange={setDrawerOpen}>
           <DrawerTrigger asChild>{settingsButton}</DrawerTrigger>
           <DrawerContent className="max-w-full">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Instellingen</DrawerTitle>
+              <DrawerDescription>
+                Pas de zichtbare routes, starttijden en wandelsnelheid aan.
+              </DrawerDescription>
+            </DrawerHeader>
             <div className="flex flex-col h-full overflow-y-auto">
               {sidebarContent}
             </div>
           </DrawerContent>
         </Drawer>
-        {donationDrawer}
       </>
     );
   }
 
   if (smallerThan.xl) {
     return (
-      <>
-        {donationDrawer}
-        <Sheet>
-          <SheetTrigger>{settingsButton}</SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Instellingen</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col h-full overflow-y-auto">
-              {sidebarContent}
-            </div>
-          </SheetContent>
-        </Sheet>
-      </>
+      <Sheet>
+        <SheetTrigger asChild>{settingsButton}</SheetTrigger>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Instellingen</SheetTitle>
+            <SheetDescription className="sr-only">
+              Pas de zichtbare routes, starttijden en wandelsnelheid aan.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col h-full overflow-y-auto">
+            {sidebarContent}
+          </div>
+        </SheetContent>
+      </Sheet>
     );
   }
 

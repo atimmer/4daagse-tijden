@@ -1,69 +1,58 @@
-# React + TypeScript + Vite
+# 4Daagse doorkomsttijden
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A map for estimating when 4Daagse walkers pass a selected point. Choose a day
+and distance, adjust start times and walking speeds, then point at or tap a route
+to see the expected passage-time range.
 
-Currently, two official plugins are available:
+The estimates assume a constant average speed. They are a planning aid, not
+official timing information.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Development
 
-## Expanding the ESLint configuration
+Requirements:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js
+- pnpm 9
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Install dependencies:
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+pnpm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The development server is managed through the local Devservers Manager. The
+project scripts used for verification are:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
+
+## Project structure
+
+- `src/App.tsx` loads edition route data and owns the selected day, distances,
+  start times, and speed range.
+- `src/components/MapView.tsx` renders the Leaflet map and handles selecting a
+  route point.
+- `src/lib/` contains date, geometry, and passage-time calculations.
+- `public/` contains route GeoJSON and application icons.
+- `docs/offline-support.md` records the decisions needed before changing route
+  fetching or adding a service worker.
+
+## Route data
+
+The current configuration targets the 108th edition, held from 21–24 July 2026.
+Its GeoJSON files are converted from the public Google My Maps linked by the
+official day pages. The edition year, individual source maps, and snapshot date
+are recorded in `src/config/edition.ts`. Official event and route information is
+available from [4Daagse](https://www.4daagse.nl/de-4daagseweek/routes).
+
+Route fetching intentionally remains unchanged while the offline strategy is
+being designed. See [the offline-support draft](docs/offline-support.md).
+
+## Deployment
+
+The app is a static Vite build. `pnpm build` writes the production files to
+`dist/`.

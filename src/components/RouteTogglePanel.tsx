@@ -27,21 +27,28 @@ const RouteTogglePanel: React.FC<RouteTogglePanelProps> = ({
           <AccordionContent>
             <div className="flex flex-col gap-2 pl-4">
               {variants.map((variant) => (
-                <label
+                <div
                   key={variant.id}
                   className="flex items-center gap-2 cursor-pointer"
                 >
                   <Checkbox
                     checked={variant.visible}
                     onCheckedChange={() => onToggle(variant.id)}
-                    id={variant.id}
+                    id={`route-toggle-${encodeURIComponent(variant.id)}`}
                   />
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ backgroundColor: variant.color }}
-                  ></span>
-                  <span>{variant.label}</span>
-                </label>
+                  <label
+                    htmlFor={`route-toggle-${encodeURIComponent(variant.id)}`}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <span
+                      className="inline-block w-3 h-3 rounded-full"
+                      style={{ backgroundColor: variant.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">Route tonen: </span>
+                    <span>{variant.label}</span>
+                  </label>
+                </div>
               ))}
             </div>
           </AccordionContent>

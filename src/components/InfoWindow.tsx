@@ -1,6 +1,13 @@
 import React from "react";
 import RoutePopup from "./RoutePopup";
-import { Drawer, DrawerContent, DrawerClose } from "./ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerClose,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "./ui/drawer";
 import { Button } from "./ui/button";
 import { useBreakpoints } from "@/lib/layout-hooks";
 import { ChevronDownIcon } from "lucide-react";
@@ -28,8 +35,9 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
   setDrawerOpen,
 }) => {
   const { smallerThan } = useBreakpoints();
+  const hasPopupInfo = Boolean(popupInfo?.length);
 
-  // Advertising drawer content
+  // Guidance shown before a route point is selected.
   const infoText = (
     <div className="p-3 text-sm text-gray-700">
       <b>Verwachte doorkomst</b>
@@ -41,9 +49,9 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
     </div>
   );
 
-  // Summary for advertising drawer when a point is selected
+  // Compact summary shown above the map when a point is selected.
   let summary = infoText;
-  if (popupInfo && popupInfo.length > 0) {
+  if (hasPopupInfo && popupInfo) {
     // Group by direction
     const heen = popupInfo.filter((r) => r.direction === "Heenreis");
     const terug = popupInfo.filter((r) => r.direction === "Terugreis");
@@ -80,7 +88,7 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
             <b>Doorkomst</b>: {overigeTime.min} – {overigeTime.max}
           </div>
         )}
-        <button className="text-blue-600 w-full leading-8 font-bold mt-4 flex justify-center items-center gap-1">
+        <div className="text-blue-600 w-full leading-8 font-bold mt-4 flex justify-center items-center gap-1">
           Bekijk per afstand
           <ChevronDownIcon
             className={`transition-transform duration-300 ${
@@ -88,35 +96,50 @@ const InfoWindow: React.FC<InfoWindowProps> = ({
             } ml-1 size-4`}
             aria-hidden="true"
           />
-        </button>
+        </div>
       </div>
     );
   }
 
   if (isMobile && drawerOpen !== undefined && setDrawerOpen) {
-    // AdvertisingDrawer is always visible at the bottom
+    const summaryClassName =
+      "fixed left-1/2 -translate-x-1/2 bottom-4 z-40 bg-white shadow-lg rounded-lg border border-gray-200 px-4 py-2 font-medium text-sm w-[95vw] max-w-sm";
+
+    // Keep a compact summary visible at the bottom of the map.
     return (
       <>
-        {/* Advertising Drawer (always visible, acts as trigger) */}
-        <button
-          className="fixed left-1/2 -translate-x-1/2 bottom-4 z-40 bg-white shadow-lg rounded-lg border border-gray-200 px-4 py-2 font-medium text-sm w-[95vw] max-w-sm"
-          aria-label="Toon doorkomst info"
-          style={{ userSelect: "none" }}
-          onClick={() => {
-            if (popupInfo && popupInfo.length > 0) setDrawerOpen(true);
-          }}
-        >
-          {summary}
-        </button>
-        {/* Main Drawer (opened by tapping the advertising drawer or map) */}
+        {/* The selected-point summary opens the detailed drawer. */}
+        {hasPopupInfo ? (
+          <button
+            type="button"
+            className={summaryClassName}
+            aria-label="Toon doorkomsttijden per afstand"
+            style={{ userSelect: "none" }}
+            onClick={() => setDrawerOpen(true)}
+          >
+            {summary}
+          </button>
+        ) : (
+          <div className={summaryClassName} style={{ userSelect: "none" }}>
+            {summary}
+          </div>
+        )}
+        {/* Detailed passage-time drawer. */}
         <Drawer
+          autoFocus
           direction="bottom"
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         >
           <DrawerContent className="max-w-sm mx-auto w-full z-50">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Verwachte doorkomsttijden</DrawerTitle>
+              <DrawerDescription>
+                Bekijk de verwachte doorkomsttijd per afstand voor het
+                geselecteerde punt.
+              </DrawerDescription>
+            </DrawerHeader>
             <div className="p-4 max-h-[70vh] overflow-y-auto">
-              <div className="font-semibold mb-4 sr-only">Doorkomst info</div>
               {popupInfo && popupInfo.length > 0 ? (
                 <>
                   <RoutePopup routes={popupInfo} />

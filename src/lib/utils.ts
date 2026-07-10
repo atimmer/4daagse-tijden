@@ -1,16 +1,35 @@
 import { clsx, type ClassValue } from "clsx";
+import type { FeatureCollection, LineString, Position } from "geojson";
 import { twMerge } from "tailwind-merge";
-import type { RouteVariant } from "../components/MapView";
-import type { Feature, LineString, Position } from "geojson";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Haversine formula to calculate distance between two lat/lng points in km
+/** A GeoJSON coordinate, ordered as longitude then latitude. */
+export type LngLat = [longitude: number, latitude: number];
+
+/** A Leaflet coordinate tuple, ordered as latitude then longitude. */
+export type LeafletLatLngTuple = [latitude: number, longitude: number];
+
+export function leafletLatLngToLngLat([
+  latitude,
+  longitude,
+]: LeafletLatLngTuple): LngLat {
+  return [longitude, latitude];
+}
+
+export function lngLatToLeafletLatLng([
+  longitude,
+  latitude,
+]: LngLat): LeafletLatLngTuple {
+  return [latitude, longitude];
+}
+
+// Haversine formula to calculate distance between two GeoJSON lng/lat points in km
 export function haversineDistance(
-  [lng1, lat1]: [number, number],
-  [lng2, lat2]: [number, number]
+  [lng1, lat1]: LngLat,
+  [lng2, lat2]: LngLat
 ): number {
   const R = 6371; // Earth radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -31,6 +50,10 @@ export function estimatePassageTime(
   distanceKm: number,
   speedKmh: number
 ): string {
+  if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+    throw new RangeError("Walking speed must be greater than zero");
+  }
+
   // startTime: '07:00'
   const [h, m] = startTime.split(":").map(Number);
   const startMinutes = h * 60 + m;
@@ -41,10 +64,12 @@ export function estimatePassageTime(
   return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
 }
 
-// Given a GeoJSON LineString, return an array of cumulative distances (km) for each point
-export function getCumulativeDistances(coordinates: Point[]): number[] {
+// Given GeoJSON coordinates, return the cumulative distance (km) at each point.
+export function getCumulativeDistances(
+  coordinates: readonly LngLat[]
+): number[] {
   let total = 0;
-  const result = [0];
+  const result = coordinates.length === 0 ? [] : [0];
   for (let i = 1; i < coordinates.length; i++) {
     total += haversineDistance(coordinates[i - 1], coordinates[i]);
     result.push(total);
@@ -52,135 +77,181 @@ export function getCumulativeDistances(coordinates: Point[]): number[] {
   return result;
 }
 
-export type Point = [number, number];
+export interface RouteSearchRoute {
+  id: string;
+  geojson: FeatureCollection;
+}
+
+export interface RelevantRoutePoint {
+  routeId: string;
+  pointIndices: number[];
+  latlng: LeafletLatLngTuple;
+  /** Precomputed route distances corresponding to pointIndices. */
+  cumulativeDistancesKm: number[];
+}
+
+interface IndexedRoutePoint {
+  coordinate: LngLat;
+  cumulativeDistanceKm: number;
+  featureIndex: number;
+  pointIndex: number;
+  routeId: string;
+}
+
+export interface RouteSearchIndex {
+  readonly buckets: ReadonlyMap<string, readonly IndexedRoutePoint[]>;
+}
+
+const GRID_CELL_DEGREES = 0.01;
+const MAX_ROUTE_DISTANCE_KM = 1;
+const RELEVANT_POINT_DISTANCE_KM = 0.1;
+const MIN_ROUTE_DISTANCE_DIFFERENCE_KM = 1;
+
+function isLngLat(position: Position): position is LngLat {
+  return (
+    position.length >= 2 &&
+    typeof position[0] === "number" &&
+    typeof position[1] === "number"
+  );
+}
+
+function gridCell([longitude, latitude]: LngLat): [number, number] {
+  return [
+    Math.floor(longitude / GRID_CELL_DEGREES),
+    Math.floor(latitude / GRID_CELL_DEGREES),
+  ];
+}
+
+function gridKey(x: number, y: number): string {
+  return `${x}:${y}`;
+}
 
 /**
- * Find the closest point on any route to the hoveredLatLng
- *
- * @param hoveredLatLng - The point to find the closest point to
- * @param routeVariants - The routes to search in
- *
- * @returns The closest point on any route to the hoveredLatLng
+ * Precomputes normalized coordinates, cumulative distances and a small spatial
+ * grid. Build this when the visible routes change, not for each pointer event.
  */
-function findClosestPoint(
-  hoveredLatLng: Point,
-  routeVariants: RouteVariant[]
-): Point {
-  let closestPoint: Point = hoveredLatLng;
-  let minDistance = Infinity;
+export function buildRouteSearchIndex(
+  routes: readonly RouteSearchRoute[]
+): RouteSearchIndex {
+  const mutableBuckets = new Map<string, IndexedRoutePoint[]>();
 
-  for (const route of routeVariants) {
-    const features = route.geojson.features.filter(
-      (f): f is Feature<LineString> => f.geometry.type === "LineString"
-    );
+  for (const route of routes) {
+    route.geojson.features.forEach((feature, featureIndex) => {
+      if (feature.geometry.type !== "LineString") return;
 
-    for (const feature of features) {
-      const coords = (feature.geometry.coordinates as Position[]).filter(
-        (c): c is [number, number] =>
-          Array.isArray(c) &&
-          c.length >= 2 &&
-          typeof c[0] === "number" &&
-          typeof c[1] === "number"
+      const coordinates = (feature.geometry as LineString).coordinates.filter(
+        isLngLat
       );
+      const cumulativeDistances = getCumulativeDistances(coordinates);
 
-      for (const [lng, lat] of coords) {
-        const distance = haversineDistance(hoveredLatLng, [lat, lng]);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestPoint = [lat, lng];
+      coordinates.forEach((coordinate, pointIndex) => {
+        const [x, y] = gridCell(coordinate);
+        const key = gridKey(x, y);
+        const bucket = mutableBuckets.get(key) ?? [];
+        bucket.push({
+          coordinate,
+          cumulativeDistanceKm: cumulativeDistances[pointIndex],
+          featureIndex,
+          pointIndex,
+          routeId: route.id,
+        });
+        mutableBuckets.set(key, bucket);
+      });
+    });
+  }
+
+  return { buckets: mutableBuckets };
+}
+
+function queryNearbyPoints(
+  point: LngLat,
+  radiusKm: number,
+  index: RouteSearchIndex
+): { distanceKm: number; point: IndexedRoutePoint }[] {
+  const [longitude, latitude] = point;
+  const latitudeDelta = radiusKm / 110.574;
+  const longitudeKmPerDegree =
+    111.32 * Math.max(Math.abs(Math.cos((latitude * Math.PI) / 180)), 0.01);
+  const longitudeDelta = radiusKm / longitudeKmPerDegree;
+  const [minX, minY] = gridCell([
+    longitude - longitudeDelta,
+    latitude - latitudeDelta,
+  ]);
+  const [maxX, maxY] = gridCell([
+    longitude + longitudeDelta,
+    latitude + latitudeDelta,
+  ]);
+  const results: { distanceKm: number; point: IndexedRoutePoint }[] = [];
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (const indexedPoint of index.buckets.get(gridKey(x, y)) ?? []) {
+        const distanceKm = haversineDistance(point, indexedPoint.coordinate);
+        if (distanceKm <= radiusKm) {
+          results.push({ distanceKm, point: indexedPoint });
         }
       }
     }
   }
 
-  return closestPoint;
-}
-
-/**
- * Based on the given point, finds all points that are relevant to the user
- *
- * Steps:
- * - Find all points within 100 meters of the given point
- * - Order by distance from the given point
- * - Deduplicate: only keep points whose cumulative distances from start differ by at least 1km
- *
- */
-function findRelevantRoutePoints(
-  point: Point,
-  routeVariants: RouteVariant[]
-): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
-  const results: {
-    routeId: string;
-    pointIndices: number[];
-    latlng: [number, number];
-  }[] = [];
-
-  for (const route of routeVariants) {
-    const features = route.geojson.features.filter(
-      (f): f is Feature<LineString> => f.geometry.type === "LineString"
-    );
-
-    for (const feature of features) {
-      const coords = (feature.geometry.coordinates as Position[]).filter(
-        (c): c is [number, number] =>
-          Array.isArray(c) &&
-          c.length >= 2 &&
-          typeof c[0] === "number" &&
-          typeof c[1] === "number"
-      );
-
-      // Find points within 100m and calculate distances
-      const pointsWithDist = coords
-        .map(([lng, lat], idx) => ({
-          index: idx,
-          point: [lat, lng] as Point,
-          dist: haversineDistance(point, [lat, lng]),
-        }))
-        .filter(({ dist }) => dist <= 0.1); // 100m = 0.1km
-
-      // Sort by distance
-      pointsWithDist.sort((a, b) => a.dist - b.dist);
-
-      // Get cumulative distances from start
-      const cumDists = getCumulativeDistances(coords);
-
-      // Deduplicate based on cumulative distance
-      const deduped = pointsWithDist.filter((pt, idx) =>
-        pointsWithDist
-          .slice(0, idx)
-          .every(
-            (other) => Math.abs(cumDists[pt.index] - cumDists[other.index]) > 1
-          )
-      );
-
-      if (deduped.length > 0) {
-        results.push({
-          routeId: route.id,
-          pointIndices: deduped.map((d) => d.index),
-          latlng: deduped[0].point,
-        });
-      }
-    }
-  }
   return results;
 }
 
-// Returns an array of { routeId, pointIndices, latlng } for relevant points near hoveredLatLng
+/** Returns route points relevant to a GeoJSON lng/lat coordinate. */
 export function getRelevantRoutePoints(
-  hoveredLatLng: Point,
-  routeVariants: RouteVariant[]
-): { routeId: string; pointIndices: number[]; latlng: [number, number] }[] {
-  const closestPoint = findClosestPoint(hoveredLatLng, routeVariants);
+  lngLat: LngLat,
+  index: RouteSearchIndex
+): RelevantRoutePoint[] {
+  const pointsNearPointer = queryNearbyPoints(
+    lngLat,
+    MAX_ROUTE_DISTANCE_KM,
+    index
+  );
+  if (pointsNearPointer.length === 0) return [];
 
-  const distance = haversineDistance(hoveredLatLng, closestPoint);
-  // If the distance is greater than 0.5km, return an empty array
-  if (distance > 1) {
-    return [];
+  let closest = pointsNearPointer[0];
+  for (let i = 1; i < pointsNearPointer.length; i++) {
+    if (pointsNearPointer[i].distanceKm < closest.distanceKm) {
+      closest = pointsNearPointer[i];
+    }
   }
 
-  const relevantRoutePoints = findRelevantRoutePoints(
-    closestPoint,
-    routeVariants
-  );
-  return relevantRoutePoints;
+  const pointsNearRoute = queryNearbyPoints(
+    closest.point.coordinate,
+    RELEVANT_POINT_DISTANCE_KM,
+    index
+  ).sort((a, b) => a.distanceKm - b.distanceKm);
+  const groupedPoints = new Map<string, typeof pointsNearRoute>();
+
+  for (const candidate of pointsNearRoute) {
+    const groupKey = `${candidate.point.routeId}:${candidate.point.featureIndex}`;
+    const group = groupedPoints.get(groupKey) ?? [];
+    group.push(candidate);
+    groupedPoints.set(groupKey, group);
+  }
+
+  const results: RelevantRoutePoint[] = [];
+  for (const candidates of groupedPoints.values()) {
+    const deduplicated = candidates.filter((candidate, index) =>
+      candidates.slice(0, index).every(
+        (other) =>
+          Math.abs(
+            candidate.point.cumulativeDistanceKm -
+              other.point.cumulativeDistanceKm
+          ) > MIN_ROUTE_DISTANCE_DIFFERENCE_KM
+      )
+    );
+    if (deduplicated.length === 0) continue;
+
+    results.push({
+      routeId: deduplicated[0].point.routeId,
+      pointIndices: deduplicated.map(({ point }) => point.pointIndex),
+      latlng: lngLatToLeafletLatLng(deduplicated[0].point.coordinate),
+      cumulativeDistancesKm: deduplicated.map(
+        ({ point }) => point.cumulativeDistanceKm
+      ),
+    });
+  }
+
+  return results;
 }

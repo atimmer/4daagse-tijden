@@ -1,31 +1,21 @@
 import React, { useEffect, useState } from "react";
 import MapView from "./components/MapView";
-import type { Feature, LineString, FeatureCollection, Position } from "geojson";
-import { getCumulativeDistances, estimatePassageTime } from "./lib/utils";
+import type { Feature, LineString, FeatureCollection } from "geojson";
+import {
+  estimatePassageTime,
+  type LeafletLatLngTuple,
+  type RelevantRoutePoint,
+} from "./lib/utils";
 import InfoWindow from "./components/InfoWindow";
 import { useIsMobile } from "./lib/layout-hooks";
 import { getDefaultDay } from "./lib/date";
 import Sidebar from "./components/Sidebar";
 import { DaySelector } from "./components/RouteSelector";
-
-const ROUTE_FILES = [
-  {
-    day: "Dinsdag",
-    file: "/4Daagse_dinsdag_2025_complete.geojson",
-  },
-  {
-    day: "Woensdag",
-    file: "/4Daagse_woensdag_2025_complete.geojson",
-  },
-  {
-    day: "Donderdag",
-    file: "/4Daagse_donderdag_2025_complete.geojson",
-  },
-  {
-    day: "Vrijdag",
-    file: "/4Daagse_vrijdag_2025_complete.geojson",
-  },
-];
+import {
+  EDITION,
+  EVENT_DAYS,
+  getDefaultStartTime,
+} from "./config/edition";
 
 const DISTANCE_COLORS: Record<string, string> = {
   "50km": "#dc2626", // Red
@@ -54,16 +44,6 @@ export interface RouteVariant {
   startTime: string;
 }
 
-const DEFAULT_START_TIMES: Record<string, string> = {
-  "50km": "04:00",
-  "40km MIL": "04:30",
-  "40km ML": "04:30",
-  "40km": "05:00",
-  "30km": "07:00",
-};
-
-const DAYS = ["Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
-
 // Add local type for RoutePopupInfo
 interface RoutePopupInfo {
   routeName: string;
@@ -83,19 +63,15 @@ const App: React.FC = () => {
     Record<string, string[]>
   >({});
   const [startTimes, setStartTimes] = useState<Record<string, string>>({});
-  const [hovered, setHovered] = useState<
-    | { routeId: string; pointIndices: number[]; latlng: [number, number] }[]
-    | null
-  >(null);
-  const [hoveredPoint, setHoveredPoint] = useState<[number, number] | null>(
-    null
-  );
+  const [hovered, setHovered] = useState<RelevantRoutePoint[] | null>(null);
+  const [hoveredPoint, setHoveredPoint] =
+    useState<LeafletLatLngTuple | null>(null);
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     Promise.all(
-      ROUTE_FILES.map(async ({ day, file }) => {
+      EDITION.routes.map(async ({ day, file }) => {
         const geojson: FeatureCollection = await fetch(file).then((res) =>
           res.json()
         );
@@ -119,14 +95,7 @@ const App: React.FC = () => {
           const color = DISTANCE_COLORS[distance] || "#888";
           const label = DISTANCE_LABELS[distance] || distance;
           const id = `${day}-${distance}`;
-          // Special Friday logic for military
-          let startTime = DEFAULT_START_TIMES[distance] || "07:00";
-          if (
-            day === "Vrijdag" &&
-            (distance === "40km MIL" || distance === "40km ML")
-          ) {
-            startTime = "03:30";
-          }
+          const startTime = getDefaultStartTime(day, distance);
           return {
             id,
             day,
@@ -173,7 +142,7 @@ const App: React.FC = () => {
   React.useEffect(() => {
     setSelectedDistancesByDay((prev) => {
       const next = { ...prev };
-      for (const day of DAYS) {
+      for (const day of EVENT_DAYS) {
         if (!next[day] && distancesByDay[day]) {
           next[day] = distancesByDay[day].map((d) => d.key);
         }
@@ -219,24 +188,12 @@ const App: React.FC = () => {
   function getPopupInfo() {
     if (!hovered || hovered.length === 0) return null;
     return hovered
-      .map(({ routeId, pointIndices, latlng }) => {
+      .map(({ routeId, pointIndices, latlng, cumulativeDistancesKm }) => {
         const variant = routeVariants.find((v) => v.id === routeId);
         if (!variant) return null;
-        const feature = variant.geojson.features.find(
-          (f) => f.geometry.type === "LineString"
-        ) as Feature<LineString> | undefined;
-        if (!feature) return null;
-        const coords = (feature.geometry.coordinates as Position[]).filter(
-          (c): c is [number, number] =>
-            Array.isArray(c) &&
-            c.length >= 2 &&
-            typeof c[0] === "number" &&
-            typeof c[1] === "number"
-        );
-        const dists = getCumulativeDistances(coords);
         // If two indices, label as heen/terug
-        return pointIndices.map((pointIndex, i) => {
-          const distanceKm = dists[pointIndex] || 0;
+        return pointIndices.map((_, i) => {
+          const distanceKm = cumulativeDistancesKm[i] ?? 0;
           const startTime = variant.startTime;
           const earliest = estimatePassageTime(startTime, distanceKm, maxSpeed);
           const latest = estimatePassageTime(startTime, distanceKm, minSpeed);
@@ -262,18 +219,27 @@ const App: React.FC = () => {
   const daySelectorBar = (
     <div
       className={
-        " " +
+        "flex flex-col items-center " +
         (isMobile
           ? "fixed top-4 right-4 z-40 justify-center gap-2"
           : "fixed top-4 left-1/2 transform -translate-x-1/2 z-40 justify-center items-center")
       }
     >
       <DaySelector
-        days={DAYS}
+        days={EVENT_DAYS}
         selectedDay={selectedDay}
         onDayChange={setSelectedDay}
         className="gap-2"
       />
+      <a
+        href={EDITION.source.url}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-600 shadow-sm hover:text-gray-950"
+        title={`Bron: ${EDITION.source.name}. Bijgewerkt op ${EDITION.source.lastUpdated}.`}
+      >
+        {EDITION.edition}e 4Daagse · routes {EDITION.year} · bron
+      </a>
     </div>
   );
 

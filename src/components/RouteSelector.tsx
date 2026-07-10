@@ -30,7 +30,10 @@ export const DaySelector: React.FC<DaySelectorProps> = ({
   if (isMobile) {
     return (
       <Select onValueChange={onDayChange} value={selectedDay}>
-        <SelectTrigger className="bg-white w-[150px]">
+        <SelectTrigger
+          className="bg-white w-[150px]"
+          aria-label="Selecteer een wandeldag"
+        >
           <SelectValue placeholder="Selecteer een dag" />
         </SelectTrigger>
         <SelectContent>
@@ -89,7 +92,7 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
       </div>
       <div className="flex flex-col gap-2">
         {distancesByDay[selectedDay]?.map((dist) => (
-          <Label
+          <div
             key={dist.key}
             className="flex items-center gap-3 justify-between w-full min-h-[44px]"
           >
@@ -97,25 +100,43 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
               <Checkbox
                 checked={selectedDistances.includes(dist.key)}
                 onCheckedChange={() => onDistanceToggle(dist.key)}
-                id={dist.key}
+                id={`route-${encodeURIComponent(dist.key)}`}
               />
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ backgroundColor: dist.color }}
-              ></span>
-              <span className="select-none truncate">{dist.label}</span>
+              <Label
+                htmlFor={`route-${encodeURIComponent(dist.key)}`}
+                className="flex min-w-0 items-center gap-3"
+              >
+                <span
+                  className="inline-block w-3 h-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: dist.color }}
+                  aria-hidden="true"
+                />
+                <span className="sr-only">Route tonen: </span>
+                <span className="select-none truncate">{dist.label}</span>
+              </Label>
             </div>
             <div className="w-24 ml-2 flex justify-end">
               {selectedDistances.includes(dist.key) ? (
-                <Input
-                  type="time"
-                  value={startTimes[dist.key] || "07:00"}
-                  onChange={(e) => onStartTimeChange(dist.key, e.target.value)}
-                  className="w-full text-right"
-                />
+                <>
+                  <Label
+                    htmlFor={`starttijd-${encodeURIComponent(dist.key)}`}
+                    className="sr-only"
+                  >
+                    Starttijd voor {dist.label}
+                  </Label>
+                  <Input
+                    id={`starttijd-${encodeURIComponent(dist.key)}`}
+                    type="time"
+                    value={startTimes[dist.key] || "07:00"}
+                    onChange={(e) =>
+                      onStartTimeChange(dist.key, e.target.value)
+                    }
+                    className="w-full text-right"
+                  />
+                </>
               ) : null}
             </div>
-          </Label>
+          </div>
         ))}
       </div>
     </div>

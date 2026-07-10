@@ -6,6 +6,8 @@ interface KmPerHourInputProps {
   label: string;
   value: string | number;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   min?: number;
   max?: number;
   step?: number;
@@ -18,7 +20,9 @@ const KmPerHourInput: React.FC<KmPerHourInputProps> = ({
   label,
   value,
   onChange,
-  min = 0,
+  onBlur,
+  onFocus,
+  min = 1,
   max = 11,
   step = 0.1,
   id,
@@ -40,6 +44,8 @@ const KmPerHourInput: React.FC<KmPerHourInputProps> = ({
           value={value}
           inputMode="decimal"
           onChange={onChange}
+          onBlur={onBlur}
+          onFocus={onFocus}
           placeholder={placeholder}
           className={`border-0 shadow-none px-0 py-1.5 text-base text-gray-900 placeholder:text-gray-400 flex-1 bg-transparent focus-visible:ring-0 focus-visible:border-transparent ${className}`}
           aria-describedby={`${id}-unit`}

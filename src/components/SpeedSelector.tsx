@@ -1,52 +1,31 @@
 import React, { useState } from "react";
 import KmPerHourInput from "./KmPerHourInput";
 
+const MIN_SPEED = 1;
+const MAX_SPEED = 11;
+
+function parseSpeed(value: string) {
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatSpeed(value: number) {
+  return String(value).replace(".", ",");
+}
+
 export interface SpeedRangeSelectorProps {
   minSpeed: number;
   maxSpeed: number;
   onChange: (min: number, max: number) => void;
 }
 
-/*
-
-  <div>
-    <label
-      htmlFor="price"
-      className="block text-sm/6 font-medium text-gray-900"
-    >
-      Price
-    </label>
-    <div className="mt-2">
-      <div className="flex items-center rounded-md bg-white px-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
-        <div className="shrink-0 text-base text-gray-500 select-none sm:text-sm/6">
-          $
-        </div>
-        <input
-          id="price"
-          name="price"
-          type="text"
-          placeholder="0.00"
-          aria-describedby="price-currency"
-          className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
-        />
-        <div
-          id="price-currency"
-          className="shrink-0 text-base text-gray-500 select-none sm:text-sm/6"
-        >
-          USD
-        </div>
-      </div>
-    </div>
-  </div>;
-  */
-
 const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
   minSpeed,
   maxSpeed,
   onChange,
 }) => {
-  const [minSpeedValue, setMinSpeedValue] = useState(String(minSpeed));
-  const [maxSpeedValue, setMaxSpeedValue] = useState(String(maxSpeed));
+  const [minSpeedDraft, setMinSpeedDraft] = useState<string | null>(null);
+  const [maxSpeedDraft, setMaxSpeedDraft] = useState<string | null>(null);
 
   return (
     <>
@@ -54,23 +33,25 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
         <KmPerHourInput
           id="min-speed"
           label="Minimum snelheid"
-          value={minSpeedValue}
+          value={minSpeedDraft ?? formatSpeed(minSpeed)}
           onChange={(e) => {
             const value = e.target.value;
-            setMinSpeedValue(value);
-            let numberValue = parseFloat(value.replace(",", "."));
-            if (Number.isNaN(numberValue)) {
-              numberValue = 0;
+            setMinSpeedDraft(value);
+            const parsed = parseSpeed(value);
+            if (parsed === null || parsed < MIN_SPEED || parsed > MAX_SPEED) {
+              return;
             }
-            const min = Math.max(0, Math.min(11, numberValue));
-            if (min > maxSpeed && value !== "") {
+            const min = parsed;
+            if (min > maxSpeed) {
               onChange(min, min);
             } else {
               onChange(min, maxSpeed);
             }
           }}
-          min={0}
-          max={11}
+          onFocus={() => setMinSpeedDraft(formatSpeed(minSpeed))}
+          onBlur={() => setMinSpeedDraft(null)}
+          min={MIN_SPEED}
+          max={MAX_SPEED}
           step={0.1}
           placeholder="0,0"
           className="w-16"
@@ -79,30 +60,32 @@ const SpeedRangeSelector: React.FC<SpeedRangeSelectorProps> = ({
         <KmPerHourInput
           id="max-speed"
           label="Maximum snelheid"
-          value={maxSpeedValue}
+          value={maxSpeedDraft ?? formatSpeed(maxSpeed)}
           onChange={(e) => {
             const value = e.target.value;
-            setMaxSpeedValue(value);
-            let numberValue = parseFloat(value.replace(",", "."));
-            if (Number.isNaN(numberValue)) {
-              numberValue = 0;
+            setMaxSpeedDraft(value);
+            const parsed = parseSpeed(value);
+            if (parsed === null || parsed < MIN_SPEED || parsed > MAX_SPEED) {
+              return;
             }
-            const max = Math.max(0, Math.min(11, numberValue));
-            if (minSpeed > max && value !== "") {
+            const max = parsed;
+            if (minSpeed > max) {
               onChange(max, max);
             } else {
               onChange(minSpeed, max);
             }
           }}
-          min={0}
-          max={11}
+          onFocus={() => setMaxSpeedDraft(formatSpeed(maxSpeed))}
+          onBlur={() => setMaxSpeedDraft(null)}
+          min={MIN_SPEED}
+          max={MAX_SPEED}
           step={0.1}
           placeholder="0,0"
           className="w-16"
         />
       </div>
       <p className="text-sm text-muted-foreground">
-        Doorkomst tijden worden berekend met een gemiddelde snelheid tussen de{" "}
+        Doorkomsttijden worden berekend met een gemiddelde snelheid tussen de{" "}
         {String(minSpeed).replace(".", ",")} km/h en{" "}
         {String(maxSpeed).replace(".", ",")} km/h.
       </p>
