@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import MapView from "./components/MapView";
+import MapView, { type CameraRequest } from "./components/MapView";
 import type { Feature, LineString, FeatureCollection } from "geojson";
 import {
   estimatePassageTime,
@@ -59,6 +59,9 @@ const App: React.FC = () => {
   const [minSpeed, setMinSpeed] = useState<number>(4);
   const [maxSpeed, setMaxSpeed] = useState<number>(6);
   const [selectedDay, setSelectedDay] = useState<string>(getDefaultDay());
+  const [cameraRequest, setCameraRequest] =
+    useState<CameraRequest | null>(null);
+  const nextCameraRequestId = React.useRef(0);
   const [selectedDistancesByDay, setSelectedDistancesByDay] = useState<
     Record<string, string[]>
   >({});
@@ -68,6 +71,12 @@ const App: React.FC = () => {
     useState<LeafletLatLngTuple | null>(null);
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleDayChange = (day: string) => {
+    setSelectedDay(day);
+    nextCameraRequestId.current += 1;
+    setCameraRequest({ day, id: nextCameraRequestId.current });
+  };
 
   useEffect(() => {
     Promise.all(
@@ -179,9 +188,14 @@ const App: React.FC = () => {
     );
   };
 
-  // Only show visible variants for selected day and selected distances
-  const visibleVariants = routeVariants.filter(
-    (v) => v.day === selectedDay && selectedDistances.includes(v.id)
+  const selectedDayVariants = routeVariants.filter(
+    (v) => v.day === selectedDay
+  );
+
+  // Only show variants whose distances are enabled. Camera framing uses all
+  // variants for the day, so toggling a distance never moves the map.
+  const visibleVariants = selectedDayVariants.filter((v) =>
+    selectedDistances.includes(v.id)
   );
 
   // Passage time popup info
@@ -228,7 +242,7 @@ const App: React.FC = () => {
       <DaySelector
         days={EVENT_DAYS}
         selectedDay={selectedDay}
-        onDayChange={setSelectedDay}
+        onDayChange={handleDayChange}
         className="gap-2"
       />
       <a
@@ -263,6 +277,8 @@ const App: React.FC = () => {
       <div className="absolute inset-0 z-10 ">
         <MapView
           routeVariants={visibleVariants}
+          cameraRoutes={selectedDayVariants}
+          cameraRequest={cameraRequest}
           onPointHover={(hovered) => {
             setHovered(hovered);
             if (hovered && hovered.length > 0) {

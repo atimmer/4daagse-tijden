@@ -5,6 +5,7 @@ import {
   GeoJSON,
   CircleMarker,
   useMapEvent,
+  useMap,
   Pane,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -17,7 +18,11 @@ import {
   type RouteSearchIndex,
 } from "../lib/utils";
 import type { FeatureCollection } from "geojson";
-import type { LeafletMouseEvent } from "leaflet";
+import {
+  geoJSON as createGeoJsonLayer,
+  latLngBounds,
+  type LeafletMouseEvent,
+} from "leaflet";
 
 export interface RouteVariant {
   id: string;
@@ -32,6 +37,8 @@ export interface RouteVariant {
 
 export interface MapViewProps {
   routeVariants: RouteVariant[];
+  cameraRoutes: RouteVariant[];
+  cameraRequest?: CameraRequest | null;
   onPointHover?: (hoveredRoutes: RelevantRoutePoint[] | null) => void;
   hoveredPoint?: LeafletLatLngTuple | null;
   hoveredRoutes?:
@@ -39,7 +46,57 @@ export interface MapViewProps {
     | null;
 }
 
+export interface CameraRequest {
+  day: string;
+  id: number;
+}
+
 const center: LeafletLatLngTuple = [51.842, 5.852]; // Nijmegen area
+
+const MapCameraController: React.FC<{
+  routeVariants: RouteVariant[];
+  cameraRequest?: CameraRequest | null;
+}> = ({ routeVariants, cameraRequest }) => {
+  const map = useMap();
+  const initialFitDone = React.useRef(false);
+  const handledRequestId = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (routeVariants.length === 0) return;
+
+    const requestedDayIsReady =
+      cameraRequest !== null &&
+      cameraRequest !== undefined &&
+      routeVariants.every((route) => route.day === cameraRequest.day);
+    const hasNewRequest =
+      requestedDayIsReady && handledRequestId.current !== cameraRequest.id;
+
+    if (initialFitDone.current && !hasNewRequest) return;
+
+    const bounds = latLngBounds([]);
+    for (const route of routeVariants) {
+      bounds.extend(createGeoJsonLayer(route.geojson).getBounds());
+    }
+    if (!bounds.isValid()) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const desktopSidebarWidth = window.innerWidth >= 1280 ? 400 : 0;
+
+    map.fitBounds(bounds, {
+      animate: initialFitDone.current && !reducedMotion,
+      duration: 0.9,
+      paddingTopLeft: [desktopSidebarWidth + 32, 80],
+      paddingBottomRight: [32, 32],
+    });
+
+    initialFitDone.current = true;
+    if (hasNewRequest) handledRequestId.current = cameraRequest.id;
+  }, [cameraRequest, map, routeVariants]);
+
+  return null;
+};
 
 const isTouchDevice = () => {
   if (typeof window === "undefined") return false;
@@ -149,6 +206,8 @@ const MapEventHandler: React.FC<{
 
 const MapView: React.FC<MapViewProps> = ({
   routeVariants,
+  cameraRoutes,
+  cameraRequest,
   onPointHover,
   hoveredPoint,
   hoveredRoutes,
@@ -169,6 +228,10 @@ const MapView: React.FC<MapViewProps> = ({
       zoom={12}
       style={{ height: "100vh", width: "100vw" }}
     >
+      <MapCameraController
+        routeVariants={cameraRoutes}
+        cameraRequest={cameraRequest}
+      />
       <MapEventHandler
         routeVariants={routeVariants}
         onPointHover={onPointHover}
