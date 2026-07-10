@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import MapView, { type CameraRequest } from "./components/MapView";
+import MapView, {
+  type CameraRequest,
+  type PersonMarkerData,
+} from "./components/MapView";
 import type { Feature, LineString, FeatureCollection } from "geojson";
 import {
   estimatePassageTime,
@@ -7,7 +10,7 @@ import {
   type RelevantRoutePoint,
 } from "./lib/utils";
 import InfoWindow from "./components/InfoWindow";
-import { useIsMobile } from "./lib/layout-hooks";
+import { useBreakpoints, useIsMobile } from "./lib/layout-hooks";
 import { getDefaultDay } from "./lib/date";
 import Sidebar from "./components/Sidebar";
 import { DaySelector } from "./components/RouteSelector";
@@ -15,8 +18,28 @@ import {
   EDITION,
   EVENT_DAYS,
   getDefaultStartTime,
+  type EventDay,
 } from "./config/edition";
 import { fetchRouteData } from "./lib/route-data";
+import PeoplePanel, { type VariantOption } from "./components/PeoplePanel";
+import PeopleSheet from "./components/PeopleSheet";
+import SightingDialog, {
+  type PendingSighting,
+  type SightingOption,
+} from "./components/SightingDialog";
+import { useTrackedPeople } from "./lib/use-tracked-people";
+import {
+  buildRouteGeometry,
+  estimatePersonPosition,
+  formatKm,
+  minutesToTime,
+  pointAtKm,
+  routeSliceBetweenKm,
+  timeToMinutes,
+  type PersonPosition,
+  type RouteGeometry,
+  type TrackedPerson,
+} from "./lib/tracking";
 
 const DISTANCE_COLORS: Record<string, string> = {
   "50km": "#dc2626", // Red
@@ -55,6 +78,48 @@ interface RoutePopupInfo {
   direction?: string;
 }
 
+function currentMinutes(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function toPersonMarker(
+  person: TrackedPerson,
+  position: PersonPosition,
+  geometry: RouteGeometry
+): PersonMarkerData {
+  const base = { id: person.id, name: person.name, color: person.color };
+  switch (position.kind) {
+    case "not-started":
+      return {
+        ...base,
+        latlng: pointAtKm(geometry, 0),
+        subtitle: `start ${person.startTime}`,
+        dimmed: true,
+      };
+    case "finished":
+      return {
+        ...base,
+        latlng: pointAtKm(geometry, geometry.lengthKm),
+        subtitle: "binnen",
+        dimmed: true,
+      };
+    case "point":
+      return {
+        ...base,
+        latlng: pointAtKm(geometry, position.km),
+        subtitle: `km ${formatKm(position.km)}`,
+      };
+    case "range":
+      return {
+        ...base,
+        latlng: pointAtKm(geometry, (position.minKm + position.maxKm) / 2),
+        segment: routeSliceBetweenKm(geometry, position.minKm, position.maxKm),
+        subtitle: `km ${formatKm(position.minKm)}–${formatKm(position.maxKm)}`,
+      };
+  }
+}
+
 const App: React.FC = () => {
   const [routeVariants, setRouteVariants] = useState<RouteVariant[]>([]);
   const [minSpeed, setMinSpeed] = useState<number>(4);
@@ -72,6 +137,30 @@ const App: React.FC = () => {
     useState<LeafletLatLngTuple | null>(null);
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // --- Tracked people (lopers) ---
+  const {
+    people,
+    addPerson,
+    removePerson,
+    setPersonStartTime,
+    addSighting,
+    removeSighting,
+  } = useTrackedPeople();
+  const [sightingPersonId, setSightingPersonId] = useState<string | null>(null);
+  const [pendingSighting, setPendingSighting] =
+    useState<PendingSighting | null>(null);
+  /** null = live "nu"; otherwise a fixed 'HH:mm' the positions are shown for. */
+  const [viewTime, setViewTime] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [nowMinutes, setNowMinutes] = useState(currentMinutes);
+  const { smallerThan, largerThan } = useBreakpoints();
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMinutes(currentMinutes()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDayChange = (day: string) => {
     setSelectedDay(day);
@@ -199,6 +288,108 @@ const App: React.FC = () => {
     [selectedDayVariants, selectedDistances]
   );
 
+  // --- Tracked people: positions and map markers ---
+  const routeGeometries = React.useMemo(() => {
+    const geometries = new Map<string, RouteGeometry>();
+    for (const variant of routeVariants) {
+      const geometry = buildRouteGeometry(variant.geojson);
+      if (geometry) geometries.set(variant.id, geometry);
+    }
+    return geometries;
+  }, [routeVariants]);
+
+  const viewMinutes = viewTime ? timeToMinutes(viewTime) : nowMinutes;
+
+  const { personPositions, personMarkers } = React.useMemo(() => {
+    const positions = new Map<string, PersonPosition>();
+    const markers: PersonMarkerData[] = [];
+    const markerGroupCounts = new Map<string, number>();
+    for (const person of people) {
+      if (person.day !== selectedDay) continue;
+      const geometry = routeGeometries.get(person.routeVariantId);
+      if (!geometry) continue;
+      const position = estimatePersonPosition(person, viewMinutes, {
+        minSpeedKmh: minSpeed,
+        maxSpeedKmh: maxSpeed,
+        routeLengthKm: geometry.lengthKm,
+      });
+      positions.set(person.id, position);
+      const marker = toPersonMarker(person, position, geometry);
+      const groupKey = marker.latlng
+        .map((coordinate) => coordinate.toFixed(3))
+        .join(",");
+      const indexInGroup = markerGroupCounts.get(groupKey) ?? 0;
+      markerGroupCounts.set(groupKey, indexInGroup + 1);
+      markers.push({
+        ...marker,
+        labelOffsetPx: 12 + indexInGroup * 28,
+      });
+    }
+    return { personPositions: positions, personMarkers: markers };
+  }, [people, selectedDay, routeGeometries, viewMinutes, minSpeed, maxSpeed]);
+
+  const variantOptions: VariantOption[] = selectedDayVariants.map((v) => ({
+    id: v.id,
+    label: v.label,
+    color: v.color,
+    defaultStartTime: getDefaultStartTime(v.day as EventDay, v.distance),
+  }));
+
+  const sightingPerson = sightingPersonId
+    ? people.find((p) => p.id === sightingPersonId) ?? null
+    : null;
+
+  const handleStartSighting = (personId: string) => {
+    const person = people.find((p) => p.id === personId);
+    if (!person) return;
+    // Make sure the person's route is visible so the tap can hit it.
+    setSelectedDistancesByDay((prev) => {
+      const current = prev[person.day] || [];
+      return current.includes(person.routeVariantId)
+        ? prev
+        : { ...prev, [person.day]: [...current, person.routeVariantId] };
+    });
+    if (person.day !== selectedDay) handleDayChange(person.day);
+    setSidebarOpen(false);
+    setPeopleOpen(false);
+    setHovered(null);
+    setHoveredPoint(null);
+    setSightingPersonId(personId);
+  };
+
+  const handleRouteClick = (points: RelevantRoutePoint[]) => {
+    if (!sightingPerson) return;
+    const match = points.find(
+      (p) => p.routeId === sightingPerson.routeVariantId
+    );
+    if (!match) return;
+    const kms = [...match.cumulativeDistancesKm].sort((a, b) => a - b);
+    const options: SightingOption[] = kms.map((km, index) => ({
+      distanceKm: km,
+      direction:
+        kms.length > 1
+          ? index === 0
+            ? "Heenreis"
+            : "Terugreis"
+          : undefined,
+    }));
+    setPendingSighting({
+      personId: sightingPerson.id,
+      personName: sightingPerson.name,
+      options,
+    });
+  };
+
+  const handleConfirmSighting = (option: SightingOption, time: string) => {
+    if (!pendingSighting) return;
+    addSighting(pendingSighting.personId, {
+      timeMinutes: timeToMinutes(time),
+      distanceKm: option.distanceKm,
+    });
+    setPendingSighting(null);
+    setSightingPersonId(null);
+  };
+
   // Passage time popup info
   function getPopupInfo() {
     if (!hovered || hovered.length === 0) return null;
@@ -258,6 +449,25 @@ const App: React.FC = () => {
     </div>
   );
 
+  const peoplePanel = (
+    <PeoplePanel
+      people={people}
+      positions={personPositions}
+      selectedDay={selectedDay}
+      variantOptions={variantOptions}
+      viewTime={viewTime}
+      currentTime={minutesToTime(nowMinutes)}
+      sightingPersonId={sightingPersonId}
+      onViewTimeChange={setViewTime}
+      onAddPerson={addPerson}
+      onRemovePerson={removePerson}
+      onPersonStartTimeChange={setPersonStartTime}
+      onStartSighting={handleStartSighting}
+      onCancelSighting={() => setSightingPersonId(null)}
+      onRemoveSighting={removeSighting}
+    />
+  );
+
   return (
     <div className="touch-manipulation w-screen h-screen overflow-hidden relative">
       {daySelectorBar}
@@ -273,14 +483,32 @@ const App: React.FC = () => {
         maxSpeed={maxSpeed}
         setMinSpeed={setMinSpeed}
         setMaxSpeed={setMaxSpeed}
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        peoplePanel={largerThan.xl ? peoplePanel : undefined}
       />
+      {smallerThan.xl ? (
+        <PeopleSheet
+          open={peopleOpen}
+          onOpenChange={setPeopleOpen}
+          walkerCount={people.filter((person) => person.day === selectedDay).length}
+        >
+          {peoplePanel}
+        </PeopleSheet>
+      ) : null}
       {/* Map always full screen, but sidebar overlays it */}
-      <div className="absolute inset-0 z-10 ">
+      <div
+        className={
+          "absolute inset-0 z-10" +
+          (sightingPerson ? " [&_.leaflet-container]:cursor-crosshair" : "")
+        }
+      >
         <MapView
           routeVariants={visibleVariants}
           cameraRoutes={selectedDayVariants}
           cameraRequest={cameraRequest}
           onPointHover={(hovered) => {
+            if (sightingPersonId) return;
             setHovered(hovered);
             if (hovered && hovered.length > 0) {
               setHoveredPoint(hovered[0].latlng);
@@ -288,10 +516,35 @@ const App: React.FC = () => {
               setHoveredPoint(null);
             }
           }}
+          onRouteClick={handleRouteClick}
           hoveredPoint={hoveredPoint}
           hoveredRoutes={hovered}
+          personMarkers={personMarkers}
         />
       </div>
+      {/* Sighting mode banner */}
+      {sightingPerson && !pendingSighting && (
+        <div className="fixed top-16 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg">
+          <span>
+            Tik of klik op de route waar je <b>{sightingPerson.name}</b> zag
+          </span>
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => setSightingPersonId(null)}
+          >
+            Annuleren
+          </button>
+        </div>
+      )}
+      {pendingSighting && (
+        <SightingDialog
+          pending={pendingSighting}
+          defaultTime={minutesToTime(nowMinutes)}
+          onConfirm={handleConfirmSighting}
+          onCancel={() => setPendingSighting(null)}
+        />
+      )}
       {/* InfoWindow for Doorkomst info, always visible */}
       <InfoWindow
         popupInfo={popupInfo}

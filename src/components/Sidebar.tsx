@@ -38,6 +38,11 @@ interface SidebarProps {
   maxSpeed: number;
   setMinSpeed: (min: number) => void;
   setMaxSpeed: (max: number) => void;
+  /** Controlled open state for the mobile drawer / tablet sheet. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Extra content rendered below the standard settings. */
+  peoplePanel?: React.ReactNode;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -51,8 +56,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   maxSpeed,
   setMinSpeed,
   setMaxSpeed,
+  open,
+  onOpenChange,
+  peoplePanel,
 }) => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const drawerOpen = open ?? internalOpen;
+  const setDrawerOpen = onOpenChange ?? setInternalOpen;
 
   const { smallerThan, largerThan } = useBreakpoints();
 
@@ -88,6 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           setMaxSpeed(max);
         }}
       />
+      {peoplePanel}
       {smallerThan.md && (
         <>
           <DrawerClose asChild>
@@ -140,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   if (smallerThan.xl) {
     return (
-      <Sheet>
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetTrigger asChild>{settingsButton}</SheetTrigger>
         <SheetContent>
           <SheetHeader>

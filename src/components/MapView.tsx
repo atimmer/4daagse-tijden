@@ -4,6 +4,8 @@ import {
   TileLayer,
   GeoJSON,
   CircleMarker,
+  Marker,
+  Polyline,
   useMapEvent,
   useMap,
   Pane,
@@ -19,6 +21,7 @@ import {
 } from "../lib/utils";
 import type { FeatureCollection } from "geojson";
 import {
+  divIcon,
   geoJSON as createGeoJsonLayer,
   latLngBounds,
   type LeafletMouseEvent,
@@ -35,15 +38,34 @@ export interface RouteVariant {
   startTime: string;
 }
 
+/** A tracked person's estimated position, ready to render. */
+export interface PersonMarkerData {
+  id: string;
+  name: string;
+  color: string;
+  latlng: LeafletLatLngTuple;
+  /** Route slice covering the uncertainty range, when the speed is unknown. */
+  segment?: LeafletLatLngTuple[];
+  /** e.g. "km 23,4", "km 20,1–26,3", "start 05:30", "binnen" */
+  subtitle: string;
+  /** Not started or already finished. */
+  dimmed?: boolean;
+  /** Vertical distance between the map point and its label chip. */
+  labelOffsetPx?: number;
+}
+
 export interface MapViewProps {
   routeVariants: RouteVariant[];
   cameraRoutes: RouteVariant[];
   cameraRequest?: CameraRequest | null;
   onPointHover?: (hoveredRoutes: RelevantRoutePoint[] | null) => void;
+  /** Fires on every map click with the route points near the click. */
+  onRouteClick?: (points: RelevantRoutePoint[]) => void;
   hoveredPoint?: LeafletLatLngTuple | null;
   hoveredRoutes?:
     | Pick<RelevantRoutePoint, "routeId" | "pointIndices" | "latlng">[]
     | null;
+  personMarkers?: PersonMarkerData[];
 }
 
 export interface CameraRequest {
@@ -118,17 +140,32 @@ function useRouteSearchIndex(routeVariants: RouteVariant[]): RouteSearchIndex {
 const MapEventHandler: React.FC<{
   routeVariants: RouteVariant[];
   onPointHover?: MapViewProps["onPointHover"];
-}> = ({ routeVariants, onPointHover }) => {
+  onRouteClick?: MapViewProps["onRouteClick"];
+}> = ({ routeVariants, onPointHover, onRouteClick }) => {
   const touchDevice = isTouchDevice();
   const eventType = touchDevice ? "click" : "mousemove";
   const searchIndex = useRouteSearchIndex(routeVariants);
   const animationFrame = React.useRef<number | null>(null);
   const pendingLatLng = React.useRef<LeafletLatLngTuple | null>(null);
   const onPointHoverRef = React.useRef(onPointHover);
+  const onRouteClickRef = React.useRef(onRouteClick);
 
   React.useEffect(() => {
     onPointHoverRef.current = onPointHover;
   }, [onPointHover]);
+
+  React.useEffect(() => {
+    onRouteClickRef.current = onRouteClick;
+  }, [onRouteClick]);
+
+  useMapEvent("click", (e: LeafletMouseEvent) => {
+    if (!onRouteClickRef.current) return;
+    const results = getRelevantRoutePoints(
+      leafletLatLngToLngLat([e.latlng.lat, e.latlng.lng]),
+      searchIndex
+    );
+    onRouteClickRef.current(results);
+  });
 
   const processPoint = React.useCallback(
     (latlng: LeafletLatLngTuple) => {
@@ -182,13 +219,36 @@ const MapEventHandler: React.FC<{
   return null;
 };
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function personIcon(marker: PersonMarkerData) {
+  const labelOffsetPx = marker.labelOffsetPx ?? 12;
+  return divIcon({
+    className: "person-marker",
+    iconSize: [0, 0],
+    html: `
+      <div class="person-marker-chip${marker.dimmed ? " person-marker-dimmed" : ""}" style="border-color:${marker.color};bottom:${labelOffsetPx}px">
+        <strong>${escapeHtml(marker.name)}</strong><span>${escapeHtml(marker.subtitle)}</span>
+      </div>
+      <div class="person-marker-dot" style="background:${marker.color}"></div>`,
+  });
+}
+
 const MapView: React.FC<MapViewProps> = ({
   routeVariants,
   cameraRoutes,
   cameraRequest,
   onPointHover,
+  onRouteClick,
   hoveredPoint,
   hoveredRoutes,
+  personMarkers,
 }) => {
   // Get the colors for the hovered routes
   let hoveredColors: string[] = [];
@@ -213,6 +273,7 @@ const MapView: React.FC<MapViewProps> = ({
       <MapEventHandler
         routeVariants={routeVariants}
         onPointHover={onPointHover}
+        onRouteClick={onRouteClick}
       />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -225,6 +286,31 @@ const MapView: React.FC<MapViewProps> = ({
           style={() => ({ color: route.color, weight: 4 })}
         />
       ))}
+      {/* Tracked people: uncertainty range + name chip */}
+      {personMarkers && personMarkers.length > 0 && (
+        <Pane name="person-markers" style={{ zIndex: 660 }}>
+          {personMarkers.map((marker) => (
+            <React.Fragment key={marker.id}>
+              {marker.segment && marker.segment.length > 1 && (
+                <Polyline
+                  positions={marker.segment}
+                  pathOptions={{
+                    color: marker.color,
+                    weight: 10,
+                    opacity: 0.45,
+                    lineCap: "round",
+                  }}
+                />
+              )}
+              <Marker
+                position={marker.latlng}
+                icon={personIcon(marker)}
+                interactive={false}
+              />
+            </React.Fragment>
+          ))}
+        </Pane>
+      )}
       {/* Custom marker logic */}
       {hoveredPoint && (
         <Pane name="marker-top" style={{ zIndex: 650 }}>
