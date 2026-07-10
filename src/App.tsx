@@ -119,6 +119,17 @@ const App: React.FC = () => {
     ).then((allVariants) => {
       const flatVariants = allVariants.flat();
       setRouteVariants(flatVariants);
+      setSelectedDistancesByDay((previous) => {
+        const next = { ...previous };
+        for (const day of EVENT_DAYS) {
+          if (!next[day]) {
+            next[day] = flatVariants
+              .filter((variant) => variant.day === day)
+              .map((variant) => variant.id);
+          }
+        }
+        return next;
+      });
       // Set startTimes state for each variant
       const initialStartTimes: Record<string, string> = {};
       for (const v of flatVariants) {
@@ -146,25 +157,11 @@ const App: React.FC = () => {
     return byDay;
   }, [routeVariants]);
 
-  // On first load, set selectedDistances for each day to all available
-  React.useEffect(() => {
-    setSelectedDistancesByDay((prev) => {
-      const next = { ...prev };
-      for (const day of EVENT_DAYS) {
-        if (!next[day] && distancesByDay[day]) {
-          next[day] = distancesByDay[day].map((d) => d.key);
-        }
-      }
-      return next;
-    });
-  }, [distancesByDay]);
-
   // When day changes, get selected distances or fallback to all for that day
-  const selectedDistances =
-    selectedDistancesByDay[selectedDay] &&
-    selectedDistancesByDay[selectedDay].length > 0
-      ? selectedDistancesByDay[selectedDay]
-      : [];
+  const selectedDistances = React.useMemo(() => {
+    const distances = selectedDistancesByDay[selectedDay];
+    return distances && distances.length > 0 ? distances : [];
+  }, [selectedDay, selectedDistancesByDay]);
 
   // Toggle distance for selected day
   const handleDistanceToggle = (distanceKey: string) => {
@@ -187,14 +184,19 @@ const App: React.FC = () => {
     );
   };
 
-  const selectedDayVariants = routeVariants.filter(
-    (v) => v.day === selectedDay
+  const selectedDayVariants = React.useMemo(
+    () => routeVariants.filter((variant) => variant.day === selectedDay),
+    [routeVariants, selectedDay]
   );
 
   // Only show variants whose distances are enabled. Camera framing uses all
   // variants for the day, so toggling a distance never moves the map.
-  const visibleVariants = selectedDayVariants.filter((v) =>
-    selectedDistances.includes(v.id)
+  const visibleVariants = React.useMemo(
+    () =>
+      selectedDayVariants.filter((variant) =>
+        selectedDistances.includes(variant.id)
+      ),
+    [selectedDayVariants, selectedDistances]
   );
 
   // Passage time popup info

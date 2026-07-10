@@ -108,36 +108,11 @@ const isTouchDevice = () => {
   );
 };
 
-function searchRoutesAreEqual(
-  previous: readonly RouteVariant[],
-  next: readonly RouteVariant[]
-): boolean {
-  return (
-    previous.length === next.length &&
-    previous.every(
-      (route, index) =>
-        route.id === next[index].id && route.geojson === next[index].geojson
-    )
-  );
-}
-
 function useRouteSearchIndex(routeVariants: RouteVariant[]): RouteSearchIndex {
-  const cached = React.useRef<{
-    routes: RouteVariant[];
-    index: RouteSearchIndex;
-  }>(null);
-
-  if (
-    !cached.current ||
-    !searchRoutesAreEqual(cached.current.routes, routeVariants)
-  ) {
-    cached.current = {
-      routes: routeVariants.slice(),
-      index: buildRouteSearchIndex(routeVariants),
-    };
-  }
-
-  return cached.current.index;
+  return React.useMemo(
+    () => buildRouteSearchIndex(routeVariants),
+    [routeVariants]
+  );
 }
 
 const MapEventHandler: React.FC<{
@@ -150,7 +125,10 @@ const MapEventHandler: React.FC<{
   const animationFrame = React.useRef<number | null>(null);
   const pendingLatLng = React.useRef<LeafletLatLngTuple | null>(null);
   const onPointHoverRef = React.useRef(onPointHover);
-  onPointHoverRef.current = onPointHover;
+
+  React.useEffect(() => {
+    onPointHoverRef.current = onPointHover;
+  }, [onPointHover]);
 
   const processPoint = React.useCallback(
     (latlng: LeafletLatLngTuple) => {
